@@ -37,17 +37,17 @@ class << SongRecord
     raise ArgumentError, 'batch_size must be a positive Integer' unless batch_size.is_a?(Integer) && batch_size > 0
     raise 'database ($db) is not available' unless defined?($db) && $db
 
-    offset = 0
+    last_id = 0
     loop do
-      rows = $db.execute('SELECT * FROM songs ORDER BY id LIMIT ? OFFSET ?', [batch_size, offset])
+      rows = $db.execute('SELECT * FROM songs WHERE id > ? ORDER BY id LIMIT ?', [last_id, batch_size])
       break if rows.nil? || rows.empty?
 
       rows.each do |row|
         yield SongRecord.new(row)
+        last_id = row['id'] || row[:id] || last_id
       end
 
       break if rows.length < batch_size
-      offset += batch_size
     end
 
     nil

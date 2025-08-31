@@ -13,14 +13,6 @@ This file collects short, actionable user stories and technical tasks for the pr
 - Priority: High
 - Size: Small
 
-## 2) Replace LIMIT/OFFSET with id-cursor batch scan
-- Description: Improve `SongRecord.process_in_db_batches` to use an id-cursor (WHERE id > last_id LIMIT batch) instead of LIMIT/OFFSET to make large-table scans more efficient and stable.
-- Acceptance criteria:
-  - Method iterates all rows in ascending id order without skipping or repeating when the table grows concurrently.
-  - Tests simulate large sets using in-memory DB and still pass.
-- Priority: High
-- Size: Small/Medium
-
 ## 3) Add acceptance tests for `SpotifyClient` with mocked HTTP
 - Description: Avoid live network calls in tests by stubbing `HTTParty` or using WebMock; assert request parameters and simulate responses.
 - Acceptance criteria:
@@ -121,3 +113,15 @@ This file collects short, actionable user stories and technical tasks for the pr
   - Unit tests cover token refresh flow using mocked HTTP responses and ensure no infinite retry loops.
 - Priority: High (stability)
 - Size: Medium
+
+---
+
+## Done
+
+- ## Replace LIMIT/OFFSET with id-cursor batch scan
+- Description: Improved `SongRecord.process_in_db_batches` to use an id-cursor (WHERE id > last_id LIMIT batch) instead of LIMIT/OFFSET to make large-table scans more efficient and stable.
+- Acceptance criteria:
+  - Method iterates all rows in ascending id order without skipping or repeating when the table grows concurrently.
+  - Tests simulate large sets using in-memory DB and still pass.
+- Priority: High
+- Size: Small/Medium
