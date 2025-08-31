@@ -50,10 +50,23 @@ class SpotifyClient
     body = { grant_type: 'client_credentials', client_id: client_id, client_secret: client_secret }
 
     resp = HTTParty.post(TOKEN_URL, headers: headers, body: body)
-    unless resp && resp.code == 200 && resp['access_token']
+
+    # tolerant parsing: HTTParty responses can be accessed via [], parsed_response, or method accessors on doubles
+    token = if resp.respond_to?(:[]) && resp['access_token']
+              resp['access_token']
+            elsif resp.respond_to?(:access_token)
+              resp.access_token
+            elsif resp.respond_to?(:parsed_response) && resp.parsed_response.is_a?(Hash)
+              resp.parsed_response['access_token']
+            end
+
+    unless resp && resp.respond_to?(:code) && resp.code == 200 && token
       raise "Failed to fetch Spotify token: #{resp&.code} #{resp&.body}"
     end
 
-    new(access_token: resp['access_token'], token_type: resp['token_type'], expires_in: resp['expires_in'])
+    token_type = (resp.respond_to?(:[]) && resp['token_type']) || (resp.respond_to?(:token_type) && resp.token_type) || (resp.respond_to?(:parsed_response) && resp.parsed_response && resp.parsed_response['token_type'])
+    expires_in = (resp.respond_to?(:[]) && resp['expires_in']) || (resp.respond_to?(:expires_in) && resp.expires_in) || (resp.respond_to?(:parsed_response) && resp.parsed_response && resp.parsed_response['expires_in'])
+
+    new(access_token: token, token_type: token_type, expires_in: expires_in)
   end
 end
