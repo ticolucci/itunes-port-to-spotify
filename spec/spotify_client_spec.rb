@@ -1,4 +1,4 @@
-require_relative '../lib/spotify_client'
+require 'spec_helper'
 
 RSpec.describe SpotifyClient do
   describe '.setup' do
@@ -8,7 +8,8 @@ RSpec.describe SpotifyClient do
     end
 
      it 'posts to the token endpoint and returns a client on success' do
-      token_resp = double(code: 200, 'access_token' => 'abc123', 'token_type' => 'Bearer', 'expires_in' => 3600)
+      token_resp = {'access_token' => 'abc123', 'token_type' => 'Bearer', 'expires_in' => 3600}
+      allow(token_resp).to receive(:code).and_return(200)
 
       expect(HTTParty).to receive(:post).with(SpotifyClient::TOKEN_URL, any_args).and_return(token_resp)
 
@@ -18,7 +19,10 @@ RSpec.describe SpotifyClient do
     end
 
     it 'raises when token fetch fails' do
-      bad_resp = double(code: 401, body: 'unauthorized')
+      bad_resp = {}
+      allow(bad_resp).to receive(:code).and_return(401)
+      allow(bad_resp).to receive(:body).and_return('unauthorized')
+
       expect(HTTParty).to receive(:post).and_return(bad_resp)
       expect { SpotifyClient.setup }.to raise_error(RuntimeError)
     end
@@ -51,7 +55,7 @@ RSpec.describe SpotifyClient do
         expect(opts[:query][:type]).to include('track')
 
         # return a dummy response object compatible with current code expectations
-        double(code: 200, parsed_response: { 'tracks' => { 'items' => [] } })
+        double(code: 200, body: { 'tracks' => { 'items' => [] } })
       end
 
       # Call the method under test (not implemented yet)
@@ -63,7 +67,9 @@ RSpec.describe SpotifyClient do
       expect(HTTParty).to receive(:get) do |_, opts|
         expect(opts[:query][:q]).to include('track:')
         expect(opts[:query][:q]).to include('Song A')
-        double(code: 200, parsed_response: {})
+        resp = {}
+        allow(resp).to receive(:code).and_return(200)
+        resp
       end
       client.search(song_query)
     end
@@ -73,7 +79,9 @@ RSpec.describe SpotifyClient do
       expect(HTTParty).to receive(:get) do |_, opts|
         expect(opts[:query][:q]).to include('artist:')
         expect(opts[:query][:q]).to include('Artist Name')
-        double(code: 200, parsed_response: {})
+        resp = {}
+        allow(resp).to receive(:code).and_return(200)
+        resp
       end
       client.search(song_query)
     end
@@ -83,7 +91,9 @@ RSpec.describe SpotifyClient do
       expect(HTTParty).to receive(:get) do |_, opts|
         expect(opts[:query][:q]).to include('album:')
         expect(opts[:query][:q]).to include('Album A')
-        double(code: 200, parsed_response: {})
+        resp = {}
+        allow(resp).to receive(:code).and_return(200)
+        resp
       end
       client.search(song_query)
     end
