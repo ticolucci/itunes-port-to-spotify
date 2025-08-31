@@ -14,6 +14,31 @@ class SpotifyClient
     @expires_in = expires_in
   end
 
+  # Search Spotify using a hash of song attributes. Returns the HTTParty response.
+  # Expected keys: :title, :artist, :album, :album_artist, :filename
+  def search(attrs = {})
+    # Use Spotify field tags for better search relevance
+    field_map = { title: 'track', artist: 'artist', album: 'album', album_artist: 'albumartist' }
+    q_parts = []
+
+    field_map.each do |k, tag|
+      v = attrs[k] || attrs[k.to_s]
+      next if v.nil? || v.to_s.strip.empty?
+      q_parts << "#{tag}:#{v.to_s.strip}"
+    end
+
+    # include filename as plain text (Spotify doesn't have a filename field)
+    fn = attrs[:filename] || attrs['filename']
+    q_parts << fn.to_s.strip unless fn.nil? || fn.to_s.strip.empty?
+
+    q = q_parts.join(' ')
+
+    headers = { 'Authorization' => "Bearer #{@access_token}" }
+    query = { q: q, type: 'track' }
+
+    HTTParty.get('https://api.spotify.com/v1/search', headers: headers, query: query)
+  end
+
   # Initialize the client by fetching an app-level access token using client credentials.
   # Reads CLIENT_ID and CLIENT_SECRET from .secrets via Dotenv.
   def self.setup
