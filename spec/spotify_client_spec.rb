@@ -6,6 +6,22 @@ RSpec.describe SpotifyClient do
       client = SpotifyClient.setup
       expect(client).to be_a(SpotifyClient)
     end
+
+     it 'posts to the token endpoint and returns a client on success' do
+      token_resp = double(code: 200, 'access_token' => 'abc123', 'token_type' => 'Bearer', 'expires_in' => 3600)
+
+      expect(HTTParty).to receive(:post).with(SpotifyClient::TOKEN_URL, any_args).and_return(token_resp)
+
+      client = SpotifyClient.setup
+      expect(client).to be_a(SpotifyClient)
+      expect(client.access_token).to eq('abc123')
+    end
+
+    it 'raises when token fetch fails' do
+      bad_resp = double(code: 401, body: 'unauthorized')
+      expect(HTTParty).to receive(:post).and_return(bad_resp)
+      expect { SpotifyClient.setup }.to raise_error(RuntimeError)
+    end
   end
 
     describe '#search' do

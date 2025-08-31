@@ -13,14 +13,6 @@ This file collects short, actionable user stories and technical tasks for the pr
 - Priority: High
 - Size: Small
 
-## 3) Add acceptance tests for `SpotifyClient` with mocked HTTP
-- Description: Avoid live network calls in tests by stubbing `HTTParty` or using WebMock; assert request parameters and simulate responses.
-- Acceptance criteria:
-  - All specs run offline and deterministic.
-  - Coverage added for token fetch and search query formation.
-- Priority: High
-- Size: Small
-
 ## 4) Spotify search improvements: more types & options
 - Description: Extend `SpotifyClient#search` to accept options (type, market, limit) and allow searching for album/artist results in addition to tracks.
 - Acceptance criteria:
@@ -125,3 +117,11 @@ This file collects short, actionable user stories and technical tasks for the pr
   - Tests simulate large sets using in-memory DB and still pass.
 - Priority: High
 - Size: Small/Medium
+
+- ## Add acceptance tests for `SpotifyClient` with mocked HTTP
+- Description: Avoid live network calls in tests by stubbing `HTTParty` or using WebMock; assert request parameters and simulate responses.
+- Acceptance criteria:
+  - All specs run offline and deterministic.
+  - Coverage added for token fetch and search query formation.
+- Priority: High
+- Size: Small
