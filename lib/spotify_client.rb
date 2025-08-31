@@ -27,10 +27,6 @@ class SpotifyClient
       q_parts << "#{tag}:#{v.to_s.strip}"
     end
 
-    # include filename as plain text (Spotify doesn't have a filename field)
-    fn = attrs[:filename] || attrs['filename']
-    q_parts << fn.to_s.strip unless fn.nil? || fn.to_s.strip.empty?
-
     q = q_parts.join(' ')
 
     headers = { 'Authorization' => "Bearer #{@access_token}" }
@@ -51,21 +47,18 @@ class SpotifyClient
 
     resp = HTTParty.post(TOKEN_URL, headers: headers, body: body)
 
-    # tolerant parsing: HTTParty responses can be accessed via [], parsed_response, or method accessors on doubles
-    token = if resp.respond_to?(:[]) && resp['access_token']
-              resp['access_token']
-            elsif resp.respond_to?(:access_token)
-              resp.access_token
-            elsif resp.respond_to?(:parsed_response) && resp.parsed_response.is_a?(Hash)
-              resp.parsed_response['access_token']
-            end
+    token = nil
+    token ||= (resp['access_token'] rescue nil)
 
-    unless resp && resp.respond_to?(:code) && resp.code == 200 && token
-      raise "Failed to fetch Spotify token: #{resp&.code} #{resp&.body}"
+    unless (resp.code rescue nil) == 200 && token
+      code = (resp.code rescue 'unknown')
+      body = resp.body if resp.respond_to?(:body)
+      body ||= resp.inspect
+      raise "Failed to fetch Spotify token: #{code} #{body}"
     end
 
-    token_type = (resp.respond_to?(:[]) && resp['token_type']) || (resp.respond_to?(:token_type) && resp.token_type) || (resp.respond_to?(:parsed_response) && resp.parsed_response && resp.parsed_response['token_type'])
-    expires_in = (resp.respond_to?(:[]) && resp['expires_in']) || (resp.respond_to?(:expires_in) && resp.expires_in) || (resp.respond_to?(:parsed_response) && resp.parsed_response && resp.parsed_response['expires_in'])
+    token_type = resp['token_type'] rescue nil
+    expires_in = resp['expires_in'] rescue nil
 
     new(access_token: token, token_type: token_type, expires_in: expires_in)
   end
