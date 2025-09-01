@@ -1,17 +1,30 @@
 require 'spec_helper'
 
 RSpec.describe SpotifyClient do
+  def stub_api_response(resp_hash, code=200, body=nil)
+    resp = resp_hash.dup
+    allow(resp).to receive(:code).and_return(code)
+    allow(resp).to receive(:body).and_return(body) if body
+    resp
+  end
+
   describe '.setup' do
     it 'returns a SpotifyClient instance' do
       client = SpotifyClient.setup
       expect(client).to be_a(SpotifyClient)
     end
 
-     it 'posts to the token endpoint and returns a client on success' do
-      token_resp = {'access_token' => 'abc123', 'token_type' => 'Bearer', 'expires_in' => 3600}
-      allow(token_resp).to receive(:code).and_return(200)
+    it 'posts to the token endpoint and returns a client on success' do
+      token_resp = {
+        'access_token' => 'abc123',
+        'token_type' => 'Bearer',
+        'expires_in' => 3600
+      }
+      resp = stub_api_response(token_resp)
 
-      expect(HTTParty).to receive(:post).with(SpotifyClient::TOKEN_URL, any_args).and_return(token_resp)
+      expect(HTTParty).to receive(:post)
+        .with(SpotifyClient::TOKEN_URL, any_args)
+        .and_return(resp)
 
       client = SpotifyClient.setup
       expect(client).to be_a(SpotifyClient)
@@ -19,16 +32,13 @@ RSpec.describe SpotifyClient do
     end
 
     it 'raises when token fetch fails' do
-      bad_resp = {}
-      allow(bad_resp).to receive(:code).and_return(401)
-      allow(bad_resp).to receive(:body).and_return('unauthorized')
-
+      bad_resp = stub_api_response({}, 401, 'unauthorized')
       expect(HTTParty).to receive(:post).and_return(bad_resp)
       expect { SpotifyClient.setup }.to raise_error(RuntimeError)
     end
   end
 
-    describe '#search' do
+  describe '#search' do
     let(:client) { SpotifyClient.new(access_token: 'test-token') }
 
     it 'builds a Spotify search query from song attributes and calls the API' do
@@ -55,10 +65,10 @@ RSpec.describe SpotifyClient do
         expect(opts[:query][:type]).to include('track')
 
         # return a dummy response object compatible with current code expectations
-        double(code: 200, body: { 'tracks' => { 'items' => [] } })
+        stub_api_response({ 'tracks' => { 'items' => [] } })
       end
 
-      # Call the method under test (not implemented yet)
+      # Call the method under test
       client.search(song_query)
     end
 
@@ -67,9 +77,7 @@ RSpec.describe SpotifyClient do
       expect(HTTParty).to receive(:get) do |_, opts|
         expect(opts[:query][:q]).to include('track:')
         expect(opts[:query][:q]).to include('Song A')
-        resp = {}
-        allow(resp).to receive(:code).and_return(200)
-        resp
+        stub_api_response({})
       end
       client.search(song_query)
     end
@@ -79,9 +87,7 @@ RSpec.describe SpotifyClient do
       expect(HTTParty).to receive(:get) do |_, opts|
         expect(opts[:query][:q]).to include('artist:')
         expect(opts[:query][:q]).to include('Artist Name')
-        resp = {}
-        allow(resp).to receive(:code).and_return(200)
-        resp
+        stub_api_response({})
       end
       client.search(song_query)
     end
@@ -91,9 +97,7 @@ RSpec.describe SpotifyClient do
       expect(HTTParty).to receive(:get) do |_, opts|
         expect(opts[:query][:q]).to include('album:')
         expect(opts[:query][:q]).to include('Album A')
-        resp = {}
-        allow(resp).to receive(:code).and_return(200)
-        resp
+        stub_api_response({})
       end
       client.search(song_query)
     end
