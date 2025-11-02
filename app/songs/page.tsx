@@ -64,7 +64,7 @@ export default function SongsPage() {
   };
 
   const handleSearch = (song: Song) => {
-    alert(`Searching Spotify for: ${song.title} by ${song.artist}`);
+    alert(`Searching DB for: ${song.title} by ${song.artist}`);
     // TODO: Connect to Ruby SpotifyClient or reimplement in TypeScript
   };
 
@@ -161,17 +161,6 @@ export default function SongsPage() {
         </div>
       )}
 
-      <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-        <h3 className="text-sm font-semibold text-blue-900 mb-1">
-          🎓 Learning Note
-        </h3>
-        <p className="text-sm text-blue-800">
-          This is a <strong>"use client"</strong> component because it uses
-          React hooks (useState). The checkboxes and buttons are interactive,
-          which requires client-side JavaScript. Server Components can't have
-          interactivity!
-        </p>
-      </div>
     </div>
   );
 }
