@@ -82,24 +82,6 @@ export default function SongsPage() {
         </p>
       </div>
 
-      {selectedIds.size > 0 && (
-        <div className="mb-4 p-4 bg-muted rounded-lg flex items-center justify-between">
-          <span className="text-sm font-medium">
-            {selectedIds.size} song{selectedIds.size > 1 ? "s" : ""} selected
-          </span>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm">
-              <Search className="mr-2 h-4 w-4" />
-              Search Selected
-            </Button>
-            <Button variant="destructive" size="sm">
-              <Trash2 className="mr-2 h-4 w-4" />
-              Remove Selected
-            </Button>
-          </div>
-        </div>
-      )}
-
       <div className="border rounded-lg">
         <Table>
           <TableHeader>
@@ -160,6 +142,24 @@ export default function SongsPage() {
           </TableBody>
         </Table>
       </div>
+
+      {selectedIds.size > 0 && (
+        <div className="mb-4 p-4 bg-muted rounded-lg flex items-center justify-between">
+          <span className="text-sm font-medium">
+            {selectedIds.size} song{selectedIds.size > 1 ? "s" : ""} selected
+          </span>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm">
+              <Search className="mr-2 h-4 w-4" />
+              Search Selected
+            </Button>
+            <Button variant="destructive" size="sm">
+              <Trash2 className="mr-2 h-4 w-4" />
+              Remove Selected
+            </Button>
+          </div>
+        </div>
+      )}
 
       <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
         <h3 className="text-sm font-semibold text-blue-900 mb-1">
