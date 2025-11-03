@@ -83,3 +83,7 @@ yarn-error.log*
 # OS
 .DS_Store
 *.pem
+
+# SQLite
+*.db-shm
+*.db-wal
