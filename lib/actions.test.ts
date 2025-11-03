@@ -23,7 +23,8 @@ describe('fetchSongs Server Action', () => {
         artist TEXT,
         album TEXT,
         album_artist TEXT,
-        filename TEXT
+        filename TEXT,
+        spotify_id TEXT
       )
     `)
   })

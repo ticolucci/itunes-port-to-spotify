@@ -8,6 +8,13 @@
       "when": 1762174721137,
       "tag": "0000_curved_ironclad",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1762175365790,
+      "tag": "0001_long_shinko_yamashiro",
+      "breakpoints": true
     }
   ]
 }

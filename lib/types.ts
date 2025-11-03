@@ -5,4 +5,5 @@ export interface Song {
   album: string;
   album_artist: string;
   filename: string;
+  spotify_id?: string | null;
 }

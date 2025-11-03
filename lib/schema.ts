@@ -15,6 +15,7 @@ export const songs = sqliteTable(
     artist: text("artist"),
     album_artist: text("album_artist"),
     filename: text("filename"),
+    spotify_id: text("spotify_id"),
   },
   (table) => ({
     albumArtistIdx: index("idx_songs_album_artist").on(
