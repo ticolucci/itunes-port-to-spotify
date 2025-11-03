@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -11,39 +11,40 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Search, Trash2 } from "lucide-react";
+import { Search, Trash2, Loader2 } from "lucide-react";
 import type { Song } from "@/lib/types";
 
-// Sample data from spec/acceptance/project_spec.rb lines 29-33
-const sampleSongs: Song[] = [
-  {
-    id: 17791,
-    title: "Bem-Vinda",
-    album: "5 Elementos Ao Vivo",
-    artist: "Jeito Moleque",
-    album_artist: "Jeito Moleque",
-    filename: "F46/NLKA.mp3",
-  },
-  {
-    id: 18443,
-    title: "Of The Girl",
-    album: "Binaural",
-    artist: "Pearl Jam",
-    album_artist: "",
-    filename: "F48/HDVI.mp3",
-  },
-  {
-    id: 16633,
-    title: "两人骑自行车",
-    album: "山楂树之恋 原声大碟",
-    artist: "群星",
-    album_artist: "",
-    filename: "F43/IHQY.mp3",
-  },
-];
-
 export default function SongsPage() {
+  const [songs, setSongs] = useState<Song[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+
+  // Fetch songs from API on component mount
+  useEffect(() => {
+    async function fetchSongs() {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const response = await fetch("/api/songs");
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+          throw new Error(data.error || "Failed to fetch songs");
+        }
+
+        setSongs(data.songs);
+      } catch (err) {
+        console.error("Error fetching songs:", err);
+        setError(err instanceof Error ? err.message : "Unknown error");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchSongs();
+  }, []); // Empty dependency array = run once on mount
 
   const toggleSelection = (id: number) => {
     const newSelection = new Set(selectedIds);
@@ -56,10 +57,10 @@ export default function SongsPage() {
   };
 
   const toggleAll = () => {
-    if (selectedIds.size === sampleSongs.length) {
+    if (selectedIds.size === songs.length) {
       setSelectedIds(new Set());
     } else {
-      setSelectedIds(new Set(sampleSongs.map((s) => s.id)));
+      setSelectedIds(new Set(songs.map((s) => s.id)));
     }
   };
 
@@ -72,6 +73,32 @@ export default function SongsPage() {
     alert(`Delete song: ${song.title} (ID: ${song.id})`);
     // TODO: Implement delete functionality
   };
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="container mx-auto py-8">
+        <div className="flex flex-col items-center justify-center min-h-[400px]">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mb-4" />
+          <p className="text-muted-foreground">Loading songs from database...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="container mx-auto py-8">
+        <div className="border border-destructive rounded-lg p-6 bg-destructive/10">
+          <h2 className="text-xl font-semibold text-destructive mb-2">
+            Error Loading Songs
+          </h2>
+          <p className="text-sm text-muted-foreground">{error}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto py-8">
@@ -88,7 +115,7 @@ export default function SongsPage() {
             <TableRow>
               <TableHead className="w-[50px]">
                 <Checkbox
-                  checked={selectedIds.size === sampleSongs.length}
+                  checked={selectedIds.size === songs.length}
                   onCheckedChange={toggleAll}
                   aria-label="Select all"
                 />
@@ -101,7 +128,7 @@ export default function SongsPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {sampleSongs.map((song) => (
+            {songs.map((song) => (
               <TableRow
                 key={song.id}
                 data-state={selectedIds.has(song.id) ? "selected" : undefined}
