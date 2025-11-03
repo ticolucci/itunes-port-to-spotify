@@ -6,11 +6,16 @@ import type { Song } from "@/lib/types";
 export async function fetchSongs(options?: {
   limit?: number;
   offset?: number;
-}): Promise<{ success: true; count: number; songs: Song[] } | { success: false; error: string }> {
+}): Promise<{ success: true; total: number; count: number; songs: Song[] } | { success: false; error: string }> {
   try {
     const db = getDatabase();
 
-    // Build query
+    // Get total count of all songs
+    const countStmt = db.prepare("SELECT COUNT(*) as total FROM songs");
+    const countResult = countStmt.get() as { total: number };
+    const total = countResult.total;
+
+    // Build query for songs
     let query = "SELECT * FROM songs ORDER BY id";
 
     // Add pagination if provided
@@ -21,7 +26,7 @@ export async function fetchSongs(options?: {
       }
     }
 
-    // Execute query and fetch all rows
+    // Execute query and fetch rows
     const stmt = db.prepare(query);
     const rows = stmt.all();
 
@@ -37,7 +42,8 @@ export async function fetchSongs(options?: {
 
     return {
       success: true,
-      count: songs.length,
+      total, // Total songs in database
+      count: songs.length, // Songs in current page
       songs,
     };
   } catch (error) {

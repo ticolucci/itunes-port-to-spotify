@@ -11,31 +11,38 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Search, Trash2, Loader2 } from "lucide-react";
+import { Search, Trash2, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import type { Song } from "@/lib/types";
 import { fetchSongs } from "@/lib/actions";
+
+const PAGE_SIZE = 50;
 
 export default function SongsPage() {
   const [songs, setSongs] = useState<Song[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
 
-  // Fetch songs using Server Action on component mount
+  // Fetch songs using Server Action when page changes
   useEffect(() => {
     async function loadSongs() {
       try {
         setLoading(true);
         setError(null);
 
-        // Call Server Action directly - no fetch() needed!
-        const data = await fetchSongs();
+        const offset = (currentPage - 1) * PAGE_SIZE;
+
+        // Call Server Action with pagination
+        const data = await fetchSongs({ limit: PAGE_SIZE, offset });
 
         if (!data.success) {
           throw new Error(data.error);
         }
 
         setSongs(data.songs);
+        setTotalCount(data.total);
       } catch (err) {
         console.error("Error loading songs:", err);
         setError(err instanceof Error ? err.message : "Unknown error");
@@ -45,7 +52,26 @@ export default function SongsPage() {
     }
 
     loadSongs();
-  }, []); // Empty dependency array = run once on mount
+  }, [currentPage]); // Re-fetch when page changes
+
+  // Pagination helpers
+  const totalPages = Math.ceil(totalCount / PAGE_SIZE);
+  const startIndex = (currentPage - 1) * PAGE_SIZE + 1;
+  const endIndex = Math.min(currentPage * PAGE_SIZE, totalCount);
+
+  const goToNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+      setSelectedIds(new Set()); // Clear selection on page change
+    }
+  };
+
+  const goToPreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+      setSelectedIds(new Set()); // Clear selection on page change
+    }
+  };
 
   const toggleSelection = (id: number) => {
     const newSelection = new Set(selectedIds);
@@ -189,6 +215,35 @@ export default function SongsPage() {
         </div>
       )}
 
+      {/* Pagination Controls */}
+      <div className="mt-6 flex items-center justify-between">
+        <div className="text-sm text-muted-foreground">
+          Showing {totalCount > 0 ? startIndex : 0} to {endIndex} of {totalCount} songs
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={goToPreviousPage}
+            disabled={currentPage === 1 || loading}
+          >
+            <ChevronLeft className="h-4 w-4 mr-1" />
+            Previous
+          </Button>
+          <div className="text-sm text-muted-foreground px-2">
+            Page {currentPage} of {totalPages || 1}
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={goToNextPage}
+            disabled={currentPage >= totalPages || loading}
+          >
+            Next
+            <ChevronRight className="h-4 w-4 ml-1" />
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }
