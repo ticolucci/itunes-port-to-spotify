@@ -28,6 +28,22 @@ RUN_ACCEPTANCE=1 bundle exec rspec spec/acceptance/project_spec.rb
 # Install dependencies
 bundle install
 npm install
+
+# Setup Spotify API credentials (required for matching features)
+cp .env.example .env.local
+# Then edit .env.local with your Spotify API credentials from https://developer.spotify.com/dashboard
+```
+
+### Next.js Development
+```bash
+# Run development server
+npm run dev
+
+# Run tests
+npm test
+
+# Run tests with coverage
+npm run test:coverage
 ```
 
 ### Database Migrations
@@ -90,11 +106,27 @@ npm run db:studio
 - Class method `process_in_db_batches` iterates through the database using an id-cursor pattern (WHERE id > ?) instead of LIMIT/OFFSET for efficient batch processing
 - Relies on global `$db` variable for database access
 
-**SpotifyClient** (`lib/spotify_client.rb`)
+**SpotifyClient** (`lib/spotify_client.rb` - Ruby, legacy)
 - Handles Spotify API authentication and search
 - `SpotifyClient.setup` - Class method that fetches app-level access token using client credentials from `.secrets` file
 - `#search(attrs)` - Searches Spotify using tagged query parameters (track:, artist:, album:, albumartist:)
 - Reads CLIENT_ID and CLIENT_SECRET from `.secrets` via Dotenv
+
+**Spotify Integration** (`lib/spotify.ts` - TypeScript, Next.js)
+- Modern Spotify API client using official `@spotify/web-api-ts-sdk`
+- `searchSpotifyTracks()` - Searches Spotify tracks by artist, album, and/or track name
+- Uses client credentials flow with credentials from `.env.local`
+- Server Actions in `lib/spotify-actions.ts`:
+  - `getNextUnmatchedSong()` - Fetches first song without spotify_id
+  - `getSongsByArtist()` - Gets all songs by artist, sorted by album
+  - `searchSpotifyByArtistAlbum()` - Searches Spotify for tracks
+  - `saveSongMatch()` - Saves spotify_id for matched song
+
+**SpotifyMatcher Page** (`app/spotify-matcher/page.tsx`)
+- Interactive UI for matching iTunes songs with Spotify tracks
+- Shows current unmatched song with artist's album tracks
+- Displays Spotify search results with similarity scoring
+- One-click matching to save spotify_id to database
 
 **Bootstrap Script** (`scripts/bootstrap_songs_table_from_itunes_lib.rb`)
 - One-time import script that parses iTunes library JSON export (`ipod_library_with_files.txt`)
