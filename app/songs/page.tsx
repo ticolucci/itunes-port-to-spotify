@@ -6,7 +6,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   Table,
   TableBody,
-  TableCell,
   TableHead,
   TableHeader,
   TableRow,
@@ -14,6 +13,7 @@ import {
 import { Search, Trash2, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import type { Song } from "@/lib/types";
 import { fetchSongs } from "@/lib/actions";
+import { SongRow } from "./_components/song-row";
 
 const PAGE_SIZE = 50;
 
@@ -156,42 +156,14 @@ export default function SongsPage() {
           </TableHeader>
           <TableBody>
             {songs.map((song) => (
-              <TableRow
+              <SongRow
                 key={song.id}
-                data-state={selectedIds.has(song.id) ? "selected" : undefined}
-              >
-                <TableCell>
-                  <Checkbox
-                    checked={selectedIds.has(song.id)}
-                    onCheckedChange={() => toggleSelection(song.id)}
-                    aria-label={`Select ${song.title}`}
-                  />
-                </TableCell>
-                <TableCell className="font-medium">{song.title}</TableCell>
-                <TableCell>{song.artist}</TableCell>
-                <TableCell>{song.album}</TableCell>
-                <TableCell className="text-muted-foreground">
-                  {song.album_artist || "—"}
-                </TableCell>
-                <TableCell className="text-right">
-                  <div className="flex justify-end gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleSearch(song)}
-                    >
-                      <Search className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDelete(song)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
+                song={song}
+                isSelected={selectedIds.has(song.id)}
+                onToggleSelect={toggleSelection}
+                onSearch={handleSearch}
+                onDelete={handleDelete}
+              />
             ))}
           </TableBody>
         </Table>
