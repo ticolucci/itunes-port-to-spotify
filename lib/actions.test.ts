@@ -1,5 +1,8 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest'
 import Database from 'better-sqlite3'
+import { drizzle } from 'drizzle-orm/better-sqlite3'
+import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
+import path from 'path'
 
 let testDb: Database.Database
 
@@ -16,17 +19,12 @@ describe('fetchSongs Server Action', () => {
   beforeAll(() => {
     // Create in-memory database for testing
     testDb = new Database(':memory:')
-    testDb.exec(`
-      CREATE TABLE songs (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        title TEXT,
-        artist TEXT,
-        album TEXT,
-        album_artist TEXT,
-        filename TEXT,
-        spotify_id TEXT
-      )
-    `)
+
+    // Use Drizzle migrations to create schema (single source of truth)
+    const db = drizzle(testDb)
+    migrate(db, {
+      migrationsFolder: path.join(process.cwd(), 'drizzle/migrations'),
+    })
   })
 
   afterAll(() => {
