@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/table";
 import { Search, Trash2, Loader2 } from "lucide-react";
 import type { Song } from "@/lib/types";
+import { fetchSongs } from "@/lib/actions";
 
 export default function SongsPage() {
   const [songs, setSongs] = useState<Song[]>([]);
@@ -20,30 +21,30 @@ export default function SongsPage() {
   const [error, setError] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
-  // Fetch songs from API on component mount
+  // Fetch songs using Server Action on component mount
   useEffect(() => {
-    async function fetchSongs() {
+    async function loadSongs() {
       try {
         setLoading(true);
         setError(null);
 
-        const response = await fetch("/api/songs");
-        const data = await response.json();
+        // Call Server Action directly - no fetch() needed!
+        const data = await fetchSongs();
 
-        if (!response.ok || !data.success) {
-          throw new Error(data.error || "Failed to fetch songs");
+        if (!data.success) {
+          throw new Error(data.error);
         }
 
         setSongs(data.songs);
       } catch (err) {
-        console.error("Error fetching songs:", err);
+        console.error("Error loading songs:", err);
         setError(err instanceof Error ? err.message : "Unknown error");
       } finally {
         setLoading(false);
       }
     }
 
-    fetchSongs();
+    loadSongs();
   }, []); // Empty dependency array = run once on mount
 
   const toggleSelection = (id: number) => {

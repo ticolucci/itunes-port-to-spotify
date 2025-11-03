@@ -1,24 +1,23 @@
-import { NextResponse } from "next/server";
+"use server";
+
 import { getDatabase } from "@/lib/db";
 import type { Song } from "@/lib/types";
 
-export async function GET(request: Request) {
+export async function fetchSongs(options?: {
+  limit?: number;
+  offset?: number;
+}): Promise<{ success: true; count: number; songs: Song[] } | { success: false; error: string }> {
   try {
     const db = getDatabase();
-
-    // Parse URL for optional query parameters (for future pagination/filtering)
-    const { searchParams } = new URL(request.url);
-    const limit = searchParams.get("limit");
-    const offset = searchParams.get("offset");
 
     // Build query
     let query = "SELECT * FROM songs ORDER BY id";
 
     // Add pagination if provided
-    if (limit) {
-      query += ` LIMIT ${parseInt(limit)}`;
-      if (offset) {
-        query += ` OFFSET ${parseInt(offset)}`;
+    if (options?.limit) {
+      query += ` LIMIT ${options.limit}`;
+      if (options?.offset) {
+        query += ` OFFSET ${options.offset}`;
       }
     }
 
@@ -36,21 +35,16 @@ export async function GET(request: Request) {
       filename: row.filename || "",
     }));
 
-    // Return JSON response
-    return NextResponse.json({
+    return {
       success: true,
       count: songs.length,
       songs,
-    });
+    };
   } catch (error) {
     console.error("Database error:", error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Failed to fetch songs from database",
-        message: error instanceof Error ? error.message : "Unknown error",
-      },
-      { status: 500 }
-    );
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to fetch songs from database",
+    };
   }
 }
