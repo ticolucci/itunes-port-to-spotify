@@ -27,7 +27,58 @@ RUN_ACCEPTANCE=1 bundle exec rspec spec/acceptance/project_spec.rb
 ```bash
 # Install dependencies
 bundle install
+npm install
 ```
+
+### Database Migrations
+
+This project uses **Drizzle ORM** for database schema management and migrations.
+
+#### Migration Commands
+```bash
+# Generate a new migration after changing lib/schema.ts
+npm run db:generate
+
+# Apply pending migrations to the database
+npm run db:migrate
+
+# Push schema changes directly to DB (dev only, skips migration files)
+npm run db:push
+
+# Pull existing database schema into TypeScript
+npm run db:pull
+
+# Launch Drizzle Studio (visual database browser)
+npm run db:studio
+```
+
+#### Migration Workflow
+
+**Making schema changes:**
+1. Edit the schema definition in `lib/schema.ts`
+2. Run `npm run db:generate` to create a timestamped migration SQL file
+3. Review the generated SQL in `drizzle/migrations/`
+4. Run `npm run db:migrate` to apply the migration
+5. Commit both `lib/schema.ts` and the migration files
+
+**Schema definition:**
+- The TypeScript schema is in `lib/schema.ts`
+- Drizzle auto-generates TypeScript types from the schema
+- Use exported types (`Song`, `NewSong`) in Server Actions and queries
+
+**Migration files:**
+- Stored in `drizzle/migrations/` (version controlled)
+- Each migration is timestamped and tracked in `__drizzle_migrations` table
+- Migrations are idempotent and safe to run multiple times
+
+**For new databases:**
+- Run `npm run db:migrate` to create tables and apply all migrations
+
+**For existing databases:**
+- If adding migrations to an existing database with tables already created, manually mark migrations as applied:
+  ```bash
+  sqlite3 database.db "INSERT INTO __drizzle_migrations (hash, created_at) VALUES ('XXXX_migration_name', $(date +%s)000);"
+  ```
 
 ## Architecture
 
