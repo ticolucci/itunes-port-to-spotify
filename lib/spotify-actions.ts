@@ -2,7 +2,7 @@
 
 import { getDatabase } from './db'
 import type { Song } from './types'
-import { searchSpotifyTracks, type SpotifyTrack } from './spotify'
+import { searchSpotifyTracks, type SpotifyApiTrack } from './spotify'
 
 export type ActionResult<T> =
   | { success: true } & T
@@ -83,7 +83,7 @@ export async function getSongsByArtist(
 export async function searchSpotifyByArtistAlbum(
   artist: string,
   album: string
-): Promise<ActionResult<{ tracks: SpotifyTrack[] }>> {
+): Promise<ActionResult<{ tracks: SpotifyApiTrack[] }>> {
   try {
     const tracks = await searchSpotifyTracks({ artist, album })
 

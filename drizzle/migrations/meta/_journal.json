@@ -15,6 +15,13 @@
       "when": 1762175365790,
       "tag": "0001_long_shinko_yamashiro",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1762285906548,
+      "tag": "0002_ancient_runaways",
+      "breakpoints": true
     }
   ]
 }

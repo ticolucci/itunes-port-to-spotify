@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Loader2, Check, ChevronRight } from 'lucide-react'
 import type { Song } from '@/lib/types'
-import type { SpotifyTrack } from '@/lib/spotify'
+import type { SpotifyApiTrack } from '@/lib/spotify'
 import {
   getNextUnmatchedSong,
   getSongsByArtist,
@@ -15,7 +15,7 @@ import {
 export default function SpotifyMatcherPage() {
   const [currentSong, setCurrentSong] = useState<Song | null>(null)
   const [artistSongs, setArtistSongs] = useState<Song[]>([])
-  const [spotifyTracks, setSpotifyTracks] = useState<SpotifyTrack[]>([])
+  const [spotifyTracks, setSpotifyTracks] = useState<SpotifyApiTrack[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [matching, setMatching] = useState(false)
