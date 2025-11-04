@@ -36,6 +36,10 @@ class SpotifyClient {
     return SpotifyClient.instance
   }
 
+  static resetInstance(): void {
+    SpotifyClient.instance = null
+  }
+
   private getSdk(): SpotifyApi {
     if (!this.sdk) {
       const clientId = process.env.SPOTIFY_CLIENT_ID
@@ -104,6 +108,7 @@ class SpotifyClient {
        ON CONFLICT(search_query, spotify_id) DO NOTHING`
     )
 
+    // Date.now() returns milliseconds since epoch, which matches the schema's timestamp mode
     const now = Date.now()
     for (const track of tracks) {
       insertStmt.run(
@@ -122,20 +127,13 @@ class SpotifyClient {
 }
 
 // Export singleton instance getter
-let spotifyClientInstance: SpotifyClient | null = null
-
 export function getSpotifyClient(db: Database.Database): SpotifyClient {
-  if (!spotifyClientInstance) {
-    spotifyClientInstance = SpotifyClient.getInstance(db)
-  }
-  return spotifyClientInstance
+  return SpotifyClient.getInstance(db)
 }
 
 // Export function to reset singleton (for testing)
 export function resetSpotifyClient(): void {
-  spotifyClientInstance = null
-  // Also reset the class-level instance
-  SpotifyClient['instance'] = null
+  SpotifyClient.resetInstance()
 }
 
 /**
