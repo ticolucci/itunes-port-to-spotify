@@ -12,9 +12,13 @@ vi.mock('./db', () => ({
   closeDatabase: vi.fn(),
 }))
 
-// Mock the Spotify client
-vi.mock('./spotify', () => ({
-  searchSpotifyTracks: vi.fn(),
+// Mock the Spotify SDK
+vi.mock('@spotify/web-api-ts-sdk', () => ({
+  SpotifyApi: {
+    withClientCredentials: vi.fn(() => ({
+      search: vi.fn(),
+    })),
+  },
 }))
 
 // Import after mocking
@@ -22,10 +26,10 @@ import {
   getNextUnmatchedSong,
   getSongsByArtist,
   saveSongMatch,
+  searchSpotifyByArtistAlbum,
 } from './spotify-actions'
-import { searchSpotifyTracks } from './spotify'
-
-const mockSearchSpotifyTracks = vi.mocked(searchSpotifyTracks)
+import { resetSpotifyClient } from './spotify'
+import { SpotifyApi } from '@spotify/web-api-ts-sdk'
 
 describe('Spotify Actions', () => {
   beforeAll(() => {
@@ -34,6 +38,10 @@ describe('Spotify Actions', () => {
     migrate(db, {
       migrationsFolder: path.join(process.cwd(), 'drizzle/migrations'),
     })
+    
+    // Set up test environment variables
+    process.env.SPOTIFY_CLIENT_ID = 'test-client-id'
+    process.env.SPOTIFY_CLIENT_SECRET = 'test-client-secret'
   })
 
   afterAll(() => {
@@ -43,7 +51,9 @@ describe('Spotify Actions', () => {
 
   beforeEach(() => {
     testDb.exec('DELETE FROM songs')
+    testDb.exec('DELETE FROM spotify_tracks')
     vi.clearAllMocks()
+    resetSpotifyClient()
   })
 
   describe('getNextUnmatchedSong', () => {
@@ -161,6 +171,91 @@ describe('Spotify Actions', () => {
       expect(result.success).toBe(false)
       if (!result.success) {
         expect(result.error).toContain('not found')
+      }
+    })
+  })
+
+  describe('searchSpotifyByArtistAlbum', () => {
+    it('searches Spotify and caches results', async () => {
+      const mockTracks = [
+        {
+          id: 'track1',
+          name: 'Test Song',
+          artists: [{ name: 'Test Artist' }],
+          album: { name: 'Test Album' },
+          uri: 'spotify:track:track1',
+        },
+      ]
+
+      const mockSearch = vi.fn().mockResolvedValue({
+        tracks: { items: mockTracks },
+      })
+
+      vi.mocked(SpotifyApi.withClientCredentials).mockReturnValue({
+        search: mockSearch,
+      } as any)
+
+      const result = await searchSpotifyByArtistAlbum('Test Artist', 'Test Album')
+
+      expect(result.success).toBe(true)
+      if (result.success) {
+        expect(result.tracks).toHaveLength(1)
+        expect(result.tracks[0].name).toBe('Test Song')
+      }
+
+      // Verify cached in database
+      const cached = testDb
+        .prepare('SELECT * FROM spotify_tracks WHERE search_query = ?')
+        .all('artist:Test Artist album:Test Album')
+      
+      expect(cached).toHaveLength(1)
+    })
+
+    it('returns cached results on second search', async () => {
+      // Pre-populate cache
+      testDb.prepare(
+        `INSERT INTO spotify_tracks 
+         (spotify_id, name, artists, album, uri, search_query, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`
+      ).run(
+        'cached1',
+        'Cached Song',
+        JSON.stringify([{ name: 'Cached Artist' }]),
+        'Cached Album',
+        'spotify:track:cached1',
+        'artist:Cached Artist album:Cached Album',
+        Date.now()
+      )
+
+      const mockSearch = vi.fn()
+      vi.mocked(SpotifyApi.withClientCredentials).mockReturnValue({
+        search: mockSearch,
+      } as any)
+
+      const result = await searchSpotifyByArtistAlbum('Cached Artist', 'Cached Album')
+
+      // Should NOT call Spotify API
+      expect(mockSearch).not.toHaveBeenCalled()
+
+      expect(result.success).toBe(true)
+      if (result.success) {
+        expect(result.tracks).toHaveLength(1)
+        expect(result.tracks[0].name).toBe('Cached Song')
+      }
+    })
+
+    it('handles API errors', async () => {
+      const mockSearch = vi.fn().mockRejectedValue(new Error('API Error'))
+
+      vi.mocked(SpotifyApi.withClientCredentials).mockReturnValue({
+        search: mockSearch,
+      } as any)
+
+      const result = await searchSpotifyByArtistAlbum('Error Artist', 'Error Album')
+
+      expect(result.success).toBe(false)
+      if (!result.success) {
+        expect(result.error).toContain('API Error')
       }
     })
   })
