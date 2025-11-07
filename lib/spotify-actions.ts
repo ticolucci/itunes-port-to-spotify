@@ -232,3 +232,37 @@ export async function saveSongMatch(
     }
   }
 }
+
+/**
+ * Clear/undo a Spotify ID match for a song
+ */
+export async function clearSongMatch(
+  songId: number
+): Promise<ActionResult<{}>> {
+  try {
+    const db = getDatabase()
+
+    // Check if song exists
+    const song = db
+      .prepare('SELECT id FROM songs WHERE id = ?')
+      .get(songId)
+
+    if (!song) {
+      return {
+        success: false,
+        error: `Song with ID ${songId} not found`,
+      }
+    }
+
+    // Clear the spotify_id
+    db.prepare('UPDATE songs SET spotify_id = NULL WHERE id = ?').run(songId)
+
+    return { success: true }
+  } catch (error) {
+    console.error('Error clearing song match:', error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    }
+  }
+}

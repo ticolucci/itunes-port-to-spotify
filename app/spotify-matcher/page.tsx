@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
-import { Loader2, Check, ChevronRight, Music } from 'lucide-react'
+import { Loader2, Check, ChevronRight, Music, Undo2 } from 'lucide-react'
 import type { Song } from '@/lib/types'
 import type { SpotifyTrack } from '@/lib/spotify'
 import {
@@ -10,7 +10,9 @@ import {
   getSongsByAlbum,
   searchSpotifyForSong,
   saveSongMatch,
+  clearSongMatch,
 } from '@/lib/spotify-actions'
+import { ReviewCard } from './ReviewCard'
 
 interface SongWithMatch {
   dbSong: Song
@@ -29,6 +31,7 @@ export default function SpotifyMatcherPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [matchingIds, setMatchingIds] = useState<Set<number>>(new Set())
+  const [currentReviewIndex, setCurrentReviewIndex] = useState(0)
 
   useEffect(() => {
     loadNextAlbum()
@@ -76,6 +79,7 @@ export default function SpotifyMatcherPage() {
 
       setSongsWithMatches(initialSongs)
       setLoading(false)
+      setCurrentReviewIndex(0) // Reset review index
 
       // 4. Search for Spotify matches for each unmatched song
       for (let i = 0; i < songsResult.songs.length; i++) {
@@ -181,6 +185,58 @@ export default function SpotifyMatcherPage() {
     }
   }
 
+  async function handleReviewMatch(songId: number, spotifyId: string) {
+    await handleMatch(songId, spotifyId)
+    // Move to next song in review
+    setCurrentReviewIndex((prev) => prev + 1)
+  }
+
+  function handleSkip() {
+    // Just move to next song without saving
+    setCurrentReviewIndex((prev) => prev + 1)
+  }
+
+  async function handleUndo(songId: number) {
+    try {
+      setMatchingIds((prev) => new Set(prev).add(songId))
+
+      const result = await clearSongMatch(songId)
+
+      if (!result.success) {
+        alert(`Error: ${result.error}`)
+        setMatchingIds((prev) => {
+          const next = new Set(prev)
+          next.delete(songId)
+          return next
+        })
+        return
+      }
+
+      // Update local state to mark as unmatched
+      setSongsWithMatches((prev) =>
+        prev.map((item) =>
+          item.dbSong.id === songId
+            ? { ...item, isMatched: false, dbSong: { ...item.dbSong, spotify_id: null } }
+            : item
+        )
+      )
+
+      setMatchingIds((prev) => {
+        const next = new Set(prev)
+        next.delete(songId)
+        return next
+      })
+    } catch (err) {
+      console.error('Error undoing match:', err)
+      alert('Failed to undo match')
+      setMatchingIds((prev) => {
+        const next = new Set(prev)
+        next.delete(songId)
+        return next
+      })
+    }
+  }
+
   function calculateSimilarity(localTitle: string, spotifyTitle: string): number {
     // Handle null/undefined values
     if (!localTitle || !spotifyTitle) return 0
@@ -241,6 +297,8 @@ export default function SpotifyMatcherPage() {
 
   const matchedCount = songsWithMatches.filter((s) => s.isMatched).length
   const totalCount = songsWithMatches.length
+  const currentReview = songsWithMatches[currentReviewIndex]
+  const hasMoreToReview = currentReviewIndex < songsWithMatches.length
 
   return (
     <div className="container mx-auto py-8">
@@ -248,6 +306,27 @@ export default function SpotifyMatcherPage() {
       <p className="text-muted-foreground mb-8">
         Match your iTunes songs with Spotify tracks
       </p>
+
+      {/* Tinder-style Review Card */}
+      {hasMoreToReview && currentReview && (
+        <ReviewCard
+          currentReview={currentReview}
+          currentIndex={currentReviewIndex}
+          totalCount={songsWithMatches.length}
+          isMatching={matchingIds.has(currentReview.dbSong.id)}
+          onMatch={handleReviewMatch}
+          onSkip={handleSkip}
+        />
+      )}
+
+      {/* Review Complete Message */}
+      {!hasMoreToReview && (
+        <div className="mb-8 p-6 border-2 border-green-200 rounded-lg bg-green-50 text-center">
+          <Check className="h-8 w-8 text-green-600 mx-auto mb-2" />
+          <p className="font-semibold text-green-900">Review Complete!</p>
+          <p className="text-sm text-green-700">All songs have been reviewed. You can still use the table below to make changes.</p>
+        </div>
+      )}
 
       {/* Album Header */}
       <div className="mb-8 p-6 border rounded-lg bg-muted/50">
@@ -283,7 +362,9 @@ export default function SpotifyMatcherPage() {
           return (
             <div
               key={songWithMatch.dbSong.id}
-              className="border rounded-lg p-4 grid grid-cols-1 lg:grid-cols-[1fr_auto_1fr_auto] gap-4 items-center"
+              className={`border rounded-lg p-4 grid grid-cols-1 lg:grid-cols-[1fr_auto_1fr_auto] gap-4 items-center ${
+                songWithMatch.isMatched ? 'bg-green-50/50 border-green-200' : ''
+              }`}
             >
               {/* DB Song */}
               <div className="flex items-start gap-3">
@@ -355,10 +436,20 @@ export default function SpotifyMatcherPage() {
               {/* Action Button */}
               <div className="flex justify-end">
                 {songWithMatch.isMatched ? (
-                  <div className="flex items-center gap-2 text-green-600">
-                    <Check className="h-4 w-4" />
-                    <span className="text-sm font-medium">Matched</span>
-                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleUndo(songWithMatch.dbSong.id)}
+                    disabled={isMatching}
+                    className="text-muted-foreground hover:text-foreground"
+                  >
+                    {isMatching ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    ) : (
+                      <Undo2 className="h-4 w-4 mr-2" />
+                    )}
+                    Undo
+                  </Button>
                 ) : songWithMatch.spotifyMatch ? (
                   <Button
                     onClick={() =>
