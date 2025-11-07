@@ -2,91 +2,189 @@
 
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
-import { Loader2, Check, ChevronRight } from 'lucide-react'
+import { Loader2, Check, ChevronRight, Music } from 'lucide-react'
 import type { Song } from '@/lib/types'
 import type { SpotifyTrack } from '@/lib/spotify'
 import {
-  getNextUnmatchedSong,
-  getSongsByArtist,
-  searchSpotifyByArtistAlbum,
+  getNextUnmatchedAlbum,
+  getSongsByAlbum,
+  searchSpotifyForSong,
   saveSongMatch,
 } from '@/lib/spotify-actions'
 
+interface SongWithMatch {
+  dbSong: Song
+  spotifyMatch: SpotifyTrack | null
+  similarity: number
+  isMatched: boolean
+  searching: boolean
+}
+
 export default function SpotifyMatcherPage() {
-  const [currentSong, setCurrentSong] = useState<Song | null>(null)
-  const [artistSongs, setArtistSongs] = useState<Song[]>([])
-  const [spotifyTracks, setSpotifyTracks] = useState<SpotifyTrack[]>([])
+  const [currentAlbum, setCurrentAlbum] = useState<{
+    artist: string
+    album: string
+  } | null>(null)
+  const [songsWithMatches, setSongsWithMatches] = useState<SongWithMatch[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [matching, setMatching] = useState(false)
+  const [matchingIds, setMatchingIds] = useState<Set<number>>(new Set())
 
   useEffect(() => {
-    loadNextSong()
+    loadNextAlbum()
   }, [])
 
-  async function loadNextSong() {
+  async function loadNextAlbum() {
     try {
       setLoading(true)
       setError(null)
 
-      // 1. Fetch first song without spotify_id
-      const songResult = await getNextUnmatchedSong()
+      // 1. Get next unmatched album
+      const albumResult = await getNextUnmatchedAlbum()
 
-      if (!songResult.success) {
-        setError(songResult.error)
+      if (!albumResult.success) {
+        setError(albumResult.error)
         setLoading(false)
         return
       }
 
-      setCurrentSong(songResult.song)
+      setCurrentAlbum({
+        artist: albumResult.artist,
+        album: albumResult.album,
+      })
 
-      // 2. Find all songs for the same artist, sorted by album
-      const artistResult = await getSongsByArtist(songResult.song.artist)
-
-      if (artistResult.success) {
-        setArtistSongs(artistResult.songs)
-      }
-
-      // 3. Search Spotify for artist & album
-      const spotifyResult = await searchSpotifyByArtistAlbum(
-        songResult.song.artist,
-        songResult.song.album
+      // 2. Get all songs for this album
+      const songsResult = await getSongsByAlbum(
+        albumResult.artist,
+        albumResult.album
       )
 
-      if (spotifyResult.success) {
-        setSpotifyTracks(spotifyResult.tracks)
+      if (!songsResult.success) {
+        setError(songsResult.error)
+        setLoading(false)
+        return
       }
 
+      // 3. Initialize songs with empty matches
+      const initialSongs: SongWithMatch[] = songsResult.songs.map((song) => ({
+        dbSong: song,
+        spotifyMatch: null,
+        similarity: 0,
+        isMatched: !!song.spotify_id,
+        searching: false,
+      }))
+
+      setSongsWithMatches(initialSongs)
       setLoading(false)
+
+      // 4. Search for Spotify matches for each unmatched song
+      for (let i = 0; i < songsResult.songs.length; i++) {
+        const song = songsResult.songs[i]
+        if (!song.spotify_id) {
+          searchForMatch(i, song)
+        }
+      }
     } catch (err) {
-      console.error('Error loading song:', err)
+      console.error('Error loading album:', err)
       setError(err instanceof Error ? err.message : 'Unknown error')
       setLoading(false)
     }
   }
 
+  async function searchForMatch(index: number, song: Song) {
+    // Update searching state
+    setSongsWithMatches((prev) =>
+      prev.map((item, i) =>
+        i === index ? { ...item, searching: true } : item
+      )
+    )
+
+    try {
+      const result = await searchSpotifyForSong(
+        song.artist,
+        song.album,
+        song.title
+      )
+
+      if (result.success && result.tracks.length > 0) {
+        // Find best match
+        const bestMatch = result.tracks[0]
+        const similarity = calculateSimilarity(song.title, bestMatch.name)
+
+        setSongsWithMatches((prev) =>
+          prev.map((item, i) =>
+            i === index
+              ? {
+                  ...item,
+                  spotifyMatch: bestMatch,
+                  similarity,
+                  searching: false,
+                }
+              : item
+          )
+        )
+      } else {
+        setSongsWithMatches((prev) =>
+          prev.map((item, i) =>
+            i === index ? { ...item, searching: false } : item
+          )
+        )
+      }
+    } catch (err) {
+      console.error('Error searching for match:', err)
+      setSongsWithMatches((prev) =>
+        prev.map((item, i) =>
+          i === index ? { ...item, searching: false } : item
+        )
+      )
+    }
+  }
+
   async function handleMatch(songId: number, spotifyId: string) {
     try {
-      setMatching(true)
+      setMatchingIds((prev) => new Set(prev).add(songId))
 
       const result = await saveSongMatch(songId, spotifyId)
 
       if (!result.success) {
         alert(`Error: ${result.error}`)
+        setMatchingIds((prev) => {
+          const next = new Set(prev)
+          next.delete(songId)
+          return next
+        })
         return
       }
 
-      // Load next song
-      await loadNextSong()
+      // Update local state to mark as matched
+      setSongsWithMatches((prev) =>
+        prev.map((item) =>
+          item.dbSong.id === songId
+            ? { ...item, isMatched: true, dbSong: { ...item.dbSong, spotify_id: spotifyId } }
+            : item
+        )
+      )
+
+      setMatchingIds((prev) => {
+        const next = new Set(prev)
+        next.delete(songId)
+        return next
+      })
     } catch (err) {
       console.error('Error saving match:', err)
       alert('Failed to save match')
-    } finally {
-      setMatching(false)
+      setMatchingIds((prev) => {
+        const next = new Set(prev)
+        next.delete(songId)
+        return next
+      })
     }
   }
 
   function calculateSimilarity(localTitle: string, spotifyTitle: string): number {
+    // Handle null/undefined values
+    if (!localTitle || !spotifyTitle) return 0
+
     const normalize = (str: string) =>
       str.toLowerCase().replace(/[^a-z0-9]/g, '')
     const local = normalize(localTitle)
@@ -111,7 +209,7 @@ export default function SpotifyMatcherPage() {
       <div className="container mx-auto py-8">
         <div className="flex flex-col items-center justify-center min-h-[400px]">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mb-4" />
-          <p className="text-muted-foreground">Loading songs...</p>
+          <p className="text-muted-foreground">Loading album...</p>
         </div>
       </div>
     )
@@ -128,18 +226,21 @@ export default function SpotifyMatcherPage() {
     )
   }
 
-  if (!currentSong) {
+  if (!currentAlbum) {
     return (
       <div className="container mx-auto py-8">
         <div className="text-center">
-          <h1 className="text-3xl font-bold mb-4">All Songs Matched!</h1>
+          <h1 className="text-3xl font-bold mb-4">All Albums Matched!</h1>
           <p className="text-muted-foreground">
-            No more songs to match with Spotify.
+            No more albums to match with Spotify.
           </p>
         </div>
       </div>
     )
   }
+
+  const matchedCount = songsWithMatches.filter((s) => s.isMatched).length
+  const totalCount = songsWithMatches.length
 
   return (
     <div className="container mx-auto py-8">
@@ -148,104 +249,148 @@ export default function SpotifyMatcherPage() {
         Match your iTunes songs with Spotify tracks
       </p>
 
-      {/* Current Song */}
+      {/* Album Header */}
       <div className="mb-8 p-6 border rounded-lg bg-muted/50">
         <h2 className="text-sm font-semibold text-muted-foreground mb-2">
-          Current Song
+          Current Album
         </h2>
-        <h3 className="text-2xl font-bold">{currentSong.title}</h3>
-        <p className="text-lg text-muted-foreground">
-          {currentSong.artist} • {currentSong.album}
+        <h3 className="text-2xl font-bold">{currentAlbum.album}</h3>
+        <p className="text-lg text-muted-foreground mb-4">
+          {currentAlbum.artist}
         </p>
-      </div>
-
-      {/* Artist Songs */}
-      <div className="mb-8">
-        <h2 className="text-xl font-semibold mb-4">
-          Songs by {currentSong.artist} ({artistSongs.length})
-        </h2>
-        <div className="grid gap-2">
-          {artistSongs.slice(0, 5).map((song) => (
-            <div
-              key={song.id}
-              className="p-3 border rounded-lg text-sm flex justify-between items-center"
-            >
-              <div>
-                <p className="font-medium">{song.title}</p>
-                <p className="text-muted-foreground">{song.album}</p>
-              </div>
-              {song.spotify_id && (
-                <Check className="h-4 w-4 text-green-600" />
-              )}
-            </div>
-          ))}
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            {matchedCount} / {totalCount} songs matched
+          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => loadNextAlbum()}
+          >
+            Next Album
+            <ChevronRight className="h-4 w-4 ml-2" />
+          </Button>
         </div>
       </div>
 
-      {/* Spotify Matches */}
-      <div>
-        <h2 className="text-xl font-semibold mb-4">
-          Spotify Matches ({spotifyTracks.length})
-        </h2>
-        <div className="grid gap-4">
-          {spotifyTracks.map((track) => {
-            const similarity = calculateSimilarity(
-              currentSong.title,
-              track.name
-            )
+      {/* Songs Table */}
+      <div className="space-y-3">
+        {songsWithMatches.map((songWithMatch) => {
+          const isMatching = matchingIds.has(songWithMatch.dbSong.id)
+          const albumImage =
+            songWithMatch.spotifyMatch?.album.images?.[0]?.url
 
-            return (
-              <div
-                key={track.id}
-                className="p-4 border rounded-lg flex justify-between items-center hover:bg-muted/50 transition-colors"
-              >
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <p className="font-semibold">{track.name}</p>
-                    {similarity >= 80 && (
-                      <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">
-                        {similarity}% match
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    {track.artists.map((a) => a.name).join(', ')} •{' '}
-                    {track.album.name}
+          return (
+            <div
+              key={songWithMatch.dbSong.id}
+              className="border rounded-lg p-4 grid grid-cols-1 lg:grid-cols-[1fr_auto_1fr_auto] gap-4 items-center"
+            >
+              {/* DB Song */}
+              <div className="flex items-start gap-3">
+                <div className="w-12 h-12 bg-muted rounded flex items-center justify-center flex-shrink-0">
+                  <Music className="h-6 w-6 text-muted-foreground" />
+                </div>
+                <div className="min-w-0">
+                  <p className="font-medium truncate">
+                    {songWithMatch.dbSong.title}
+                  </p>
+                  <p className="text-sm text-muted-foreground truncate">
+                    {songWithMatch.dbSong.artist}
+                  </p>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {songWithMatch.dbSong.album}
                   </p>
                 </div>
-                <Button
-                  onClick={() => handleMatch(currentSong.id, track.id)}
-                  disabled={matching}
-                  size="sm"
-                >
-                  {matching ? (
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  ) : (
-                    <Check className="h-4 w-4 mr-2" />
-                  )}
-                  It's a Match
-                </Button>
               </div>
-            )
-          })}
-        </div>
 
-        {spotifyTracks.length === 0 && (
-          <div className="text-center py-8 text-muted-foreground">
-            No Spotify tracks found for this artist and album.
-            <br />
-            <Button
-              variant="outline"
-              size="sm"
-              className="mt-4"
-              onClick={() => handleMatch(currentSong.id, '')}
-              disabled={matching}
-            >
-              Skip this song
-              <ChevronRight className="h-4 w-4 ml-2" />
-            </Button>
-          </div>
-        )}
+              {/* Arrow */}
+              <div className="hidden lg:flex justify-center">
+                <ChevronRight className="h-5 w-5 text-muted-foreground" />
+              </div>
+
+              {/* Spotify Match */}
+              <div className="flex items-start gap-3">
+                {songWithMatch.searching ? (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span className="text-sm">Searching...</span>
+                  </div>
+                ) : songWithMatch.spotifyMatch ? (
+                  <>
+                    {albumImage && (
+                      <img
+                        src={albumImage}
+                        alt={songWithMatch.spotifyMatch.album.name}
+                        className="w-12 h-12 rounded flex-shrink-0 object-cover"
+                      />
+                    )}
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <p className="font-medium truncate">
+                          {songWithMatch.spotifyMatch.name}
+                        </p>
+                        {songWithMatch.similarity >= 80 && (
+                          <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded flex-shrink-0">
+                            {songWithMatch.similarity}%
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm text-muted-foreground truncate">
+                        {songWithMatch.spotifyMatch.artists
+                          .map((a) => a.name)
+                          .join(', ')}
+                      </p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {songWithMatch.spotifyMatch.album.name}
+                      </p>
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    No match found
+                  </p>
+                )}
+              </div>
+
+              {/* Action Button */}
+              <div className="flex justify-end">
+                {songWithMatch.isMatched ? (
+                  <div className="flex items-center gap-2 text-green-600">
+                    <Check className="h-4 w-4" />
+                    <span className="text-sm font-medium">Matched</span>
+                  </div>
+                ) : songWithMatch.spotifyMatch ? (
+                  <Button
+                    onClick={() =>
+                      handleMatch(
+                        songWithMatch.dbSong.id,
+                        songWithMatch.spotifyMatch!.id
+                      )
+                    }
+                    disabled={isMatching}
+                    size="sm"
+                  >
+                    {isMatching ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    ) : (
+                      <Check className="h-4 w-4 mr-2" />
+                    )}
+                    Match
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleMatch(songWithMatch.dbSong.id, '')}
+                    disabled={isMatching}
+                  >
+                    Skip
+                  </Button>
+                )}
+              </div>
+            </div>
+          )
+        })}
       </div>
     </div>
   )
