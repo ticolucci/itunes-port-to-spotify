@@ -4,29 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a Ruby project that ports an iTunes music library to Spotify. It parses iTunes library metadata into a SQLite database and uses the Spotify API to search for matching tracks.
+This is a TypeScript/Next.js project that ports an iTunes music library to Spotify. It parses iTunes library metadata into a SQLite database and uses the Spotify API to search for matching tracks.
 
 ## Development Commands
-
-### Testing
-```bash
-# Run all tests
-bundle exec rspec
-
-# Run specific test file
-bundle exec rspec spec/song_record_spec.rb
-
-# Run single test by line number
-bundle exec rspec spec/song_record_spec.rb:16
-
-# Run acceptance tests (requires RUN_ACCEPTANCE=1 and Spotify credentials)
-RUN_ACCEPTANCE=1 bundle exec rspec spec/acceptance/project_spec.rb
-```
 
 ### Dependencies
 ```bash
 # Install dependencies
-bundle install
 npm install
 
 # Setup Spotify API credentials (required for matching features)
@@ -100,19 +84,13 @@ npm run db:studio
 
 ### Core Components
 
-**SongRecord** (`lib/song_record.rb`)
-- Model representing a song from the iTunes library
-- Attributes: id, title, artist, album, album_artist, filename
-- Class method `process_in_db_batches` iterates through the database using an id-cursor pattern (WHERE id > ?) instead of LIMIT/OFFSET for efficient batch processing
-- Relies on global `$db` variable for database access
+**Database Schema** (`lib/schema.ts`)
+- Drizzle ORM schema definition for the songs table
+- Auto-generates TypeScript types (`Song`, `NewSong`) for type-safe queries
+- Fields: id, title, artist, album, album_artist, filename, spotify_id
+- Database connection managed by `lib/db.ts` singleton with WAL mode
 
-**SpotifyClient** (`lib/spotify_client.rb` - Ruby, legacy)
-- Handles Spotify API authentication and search
-- `SpotifyClient.setup` - Class method that fetches app-level access token using client credentials from `.secrets` file
-- `#search(attrs)` - Searches Spotify using tagged query parameters (track:, artist:, album:, albumartist:)
-- Reads CLIENT_ID and CLIENT_SECRET from `.secrets` via Dotenv
-
-**Spotify Integration** (`lib/spotify.ts` - TypeScript, Next.js)
+**Spotify Integration** (`lib/spotify.ts`)
 - Modern Spotify API client using official `@spotify/web-api-ts-sdk`
 - `searchSpotifyTracks()` - Searches Spotify tracks by artist, album, and/or track name
 - Uses client credentials flow with credentials from `.env.local`
@@ -135,32 +113,26 @@ npm run db:studio
 
 ### Database Schema
 
-SQLite database (`database.db`) with single `songs` table:
-- id (INTEGER PRIMARY KEY)
-- title, album, artist, album_artist, filename (TEXT)
+SQLite database (`database.db`) managed by Drizzle ORM:
+- Schema defined in `lib/schema.ts`
+- Fields: id (primary key), title, album, artist, album_artist, filename, spotify_id
 - Index on (artist, album, album_artist)
+- Migrations stored in `drizzle/migrations/`
 
 The database file is encrypted with git-crypt and should not be committed unencrypted.
 
-### Testing Patterns
-
-- Uses RSpec with `spec_helper.rb` that auto-loads all `lib/**/*.rb` files
-- Database tests use in-memory SQLite (`:memory:`) with `around(:each)` hooks to set up global `$db`
-- Spotify API tests stub HTTParty responses using a `stub_api_response` helper
-- Acceptance tests are opt-in via `RUN_ACCEPTANCE=1` environment variable
-
 ### Security & Secrets
 
-- **git-crypt** is used to encrypt sensitive files (`database.db`, `.secrets`, `.env`, `*.key`, `*.pem`)
+- **git-crypt** is used to encrypt sensitive files (`database.db`, `.env.local`, `*.key`, `*.pem`)
 - See `README_git_crypt.md` for setup instructions
-- `.secrets` file contains CLIENT_ID and CLIENT_SECRET for Spotify API
+- `.env.local` contains SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET for Spotify API
 - Never commit unencrypted secrets
 
 ## Future Work
 
 See `Stories.md` for planned features and current priorities, including:
 - Spotify query escaping for special characters
-- Interactive CLI for reviewing search results
-- OAuth flow for user library mutations
+- OAuth flow for user library mutations (add matched songs to Spotify playlists)
 - Rate limiting and retry logic
 - Token expiration handling
+- Search and delete functionality in songs browser UI

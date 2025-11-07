@@ -101,6 +101,101 @@ export async function searchSpotifyByArtistAlbum(
 }
 
 /**
+ * Get all songs for a specific artist and album
+ */
+export async function getSongsByAlbum(
+  artist: string,
+  album: string
+): Promise<ActionResult<{ songs: Song[] }>> {
+  try {
+    const db = getDatabase()
+
+    const songs = db
+      .prepare(
+        `SELECT id, title, artist, album, album_artist, filename, spotify_id
+         FROM songs
+         WHERE artist = ? AND album = ?
+         ORDER BY title`
+      )
+      .all(artist, album) as Song[]
+
+    return {
+      success: true,
+      songs,
+    }
+  } catch (error) {
+    console.error('Error fetching songs by album:', error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    }
+  }
+}
+
+/**
+ * Get the next unmatched album (artist + album of first unmatched song)
+ */
+export async function getNextUnmatchedAlbum(): Promise<
+  ActionResult<{ artist: string; album: string }>
+> {
+  try {
+    const db = getDatabase()
+
+    const result = db
+      .prepare(
+        `SELECT artist, album
+         FROM songs
+         WHERE spotify_id IS NULL
+         LIMIT 1`
+      )
+      .get() as { artist: string; album: string } | undefined
+
+    if (!result) {
+      return {
+        success: false,
+        error: 'No unmatched albums found',
+      }
+    }
+
+    return {
+      success: true,
+      artist: result.artist,
+      album: result.album,
+    }
+  } catch (error) {
+    console.error('Error fetching unmatched album:', error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    }
+  }
+}
+
+/**
+ * Search Spotify for a specific song
+ */
+export async function searchSpotifyForSong(
+  artist: string,
+  album: string,
+  track: string
+): Promise<ActionResult<{ tracks: SpotifyTrack[] }>> {
+  try {
+    const tracks = await searchSpotifyTracks({ artist, album, track })
+
+    return {
+      success: true,
+      tracks,
+    }
+  } catch (error) {
+    console.error('Error searching Spotify:', error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    }
+  }
+}
+
+/**
  * Save a Spotify ID match for a song
  */
 export async function saveSongMatch(
