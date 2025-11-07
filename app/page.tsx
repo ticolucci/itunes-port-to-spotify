@@ -15,30 +15,20 @@ export default function Home() {
         <section className="border rounded-lg p-6">
           <h2 className="text-2xl font-semibold mb-4">Quick Start</h2>
           <Link href="/songs">
-            <Button size="lg">View Sample Songs →</Button>
+            <Button size="lg">View iTunes Song Library</Button>
           </Link>
           <p className="text-sm text-muted-foreground mt-4">
-            See 3 sample songs from your iTunes library with an interactive
-            table
+            Browse songs imported from your iTunes library in the database
           </p>
         </section>
 
         <section className="border rounded-lg p-6">
-          <h2 className="text-2xl font-semibold mb-2">Next Steps</h2>
-          <ul className="list-disc list-inside space-y-2">
-            <li>View your iTunes library from the database</li>
-            <li>Search for songs on Spotify</li>
-            <li>Map and save your favorite tracks</li>
-          </ul>
-        </section>
-
-        <section className="border rounded-lg p-6 bg-gray-50">
-          <h2 className="text-2xl font-semibold mb-2">Backend Status</h2>
-          <p className="text-gray-600">
-            Your Ruby backend is ready with SpotifyClient and SongRecord.
-          </p>
-          <p className="text-sm text-gray-500 mt-2">
-            We'll connect this Next.js frontend to your existing Ruby code soon!
+          <h2 className="text-2xl font-semibold mb-4">Quick Start</h2>
+          <Link href="/spotify-matcher">
+            <Button size="lg">Start Matching Songs</Button>
+          </Link>
+          <p className="text-sm text-muted-foreground mt-4">
+            Match songs from your iTunes library with Spotify tracks
           </p>
         </section>
       </div>
