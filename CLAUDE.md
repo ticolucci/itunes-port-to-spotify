@@ -206,9 +206,20 @@ The local database file is encrypted with git-crypt and should not be committed 
    - Uses Vercel CLI to deploy to production
    - Ensures database is migrated before new code goes live
 
+**On pull requests:**
+7. Create or update Turso branch database for the PR
+   - Branch database named `itunes-spotify-pr-<number>`
+   - Provides isolated database for preview testing
+8. Run migrations on branch database
+9. Deploy preview to Vercel with branch database credentials
+10. Comment on PR with preview URL and database info
+11. Auto-cleanup branch database when PR closes
+
 **GitHub Secrets Required:**
 - `TURSO_DATABASE_URL`: Production database URL
 - `TURSO_AUTH_TOKEN`: Production database auth token
+- `TURSO_API_TOKEN`: Turso API token for creating/managing branch databases
+- `TURSO_PRIMARY_DB_NAME`: Name of primary database to branch from
 - `VERCEL_TOKEN`: Vercel API token for deployments
 - `VERCEL_ORG_ID`: Vercel organization/team ID
 - `VERCEL_PROJECT_ID`: Vercel project ID
@@ -234,9 +245,12 @@ This project is configured for deployment on Vercel. See `VERCEL_SETUP.md` for d
   - Automatic Vercel deployments are disabled for production
   - GitHub Actions runs migrations first, then deploys to Vercel
   - Ensures database schema is updated before new code goes live
-- **Preview (pull requests)**: Automatically deployed by Vercel
-  - Creates preview URLs for testing before merge
-  - Uses preview environment variables
+- **Preview (pull requests)**: Controlled by GitHub Actions with Turso database branching
+  - Each PR gets an isolated Turso database branch (copy of production)
+  - Migrations run on branch database before preview deployment
+  - Preview deployment uses branch database credentials
+  - Safe testing of schema changes and features without affecting production
+  - Branch database automatically deleted when PR closes
 
 **Configuration Files:**
 - `vercel.json` - Build and deployment settings

@@ -1,0 +1,45 @@
+name: Cleanup Preview Database
+
+on:
+  pull_request:
+    types: [closed]
+
+jobs:
+  cleanup:
+    name: Delete Branch Database
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Install Turso CLI
+        run: |
+          curl -sSfL https://get.tur.so/install.sh | bash
+          echo "$HOME/.turso/bin" >> $GITHUB_PATH
+
+      - name: Delete branch database
+        env:
+          TURSO_API_TOKEN: ${{ secrets.TURSO_API_TOKEN }}
+        run: |
+          BRANCH_DB_NAME="itunes-spotify-pr-${{ github.event.pull_request.number }}"
+
+          echo "Attempting to delete branch database: $BRANCH_DB_NAME"
+
+          # Check if database exists before trying to delete
+          if turso db show "$BRANCH_DB_NAME" 2>/dev/null; then
+            turso db destroy "$BRANCH_DB_NAME" --yes
+            echo "✅ Branch database $BRANCH_DB_NAME deleted successfully"
+          else
+            echo "ℹ️  Branch database $BRANCH_DB_NAME does not exist (may have been deleted already)"
+          fi
+
+      - name: Comment on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## 🧹 Preview Cleanup Complete
+
+              Branch database \`itunes-spotify-pr-${{ github.event.pull_request.number }}\` has been deleted.`
+            })
