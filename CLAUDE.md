@@ -30,6 +30,50 @@ npm test
 npm run test:coverage
 ```
 
+### Linting
+
+This project uses **ESLint** with Next.js and TypeScript configurations.
+
+```bash
+# Run linter
+npm run lint
+```
+
+#### ESLint Configuration
+
+- Config file: `eslint.config.mjs` using flat config format with FlatCompat
+- Extends `next/core-web-vitals` and `next/typescript`
+- Strict TypeScript rules are set to "warn" to allow incremental fixes
+
+#### Linting Patterns and Solutions
+
+**Test files with mock types:**
+- Use file-level disable for `@typescript-eslint/no-explicit-any` in test files
+- Add `/* eslint-disable @typescript-eslint/no-explicit-any */` at the top of test files
+- Example: `lib/spotify.test.ts`, `app/spotify-matcher/page.test.tsx`
+- Do NOT add explanatory comments - the disable is self-documenting
+
+**Empty object return types:**
+- DO NOT use `ActionResult<{}>` - it's ambiguous
+- Use explicit union types: `Promise<{ success: true } | { success: false; error: string }>`
+- Example: `saveSongMatch()` and `clearSongMatch()` in `lib/spotify-actions.ts`
+
+**Config files with CommonJS syntax:**
+- Use inline disable for `@typescript-eslint/no-require-imports` in config files
+- Add comment directly above the `require()` statement
+- Example: `tailwind.config.ts` plugins array
+
+**External images (Spotify CDN):**
+- Use inline disable for `@next/next/no-img-element` when displaying external CDN images
+- Spotify images are already optimized; Next.js Image component adds no value
+- Add comment: `// eslint-disable-next-line @next/next/no-img-element -- Spotify CDN images are already optimized`
+- Example: `app/spotify-matcher/ReviewCard.tsx`, `app/spotify-matcher/page.tsx`
+
+**React Hook dependencies:**
+- Wrap functions in `useCallback` when they're used as dependencies
+- Add `// eslint-disable-next-line react-hooks/exhaustive-deps` if intentionally omitting deps
+- Example: `loadNextAlbum` in `app/spotify-matcher/page.tsx`
+
 ### Database Migrations
 
 This project uses **Drizzle ORM** for database schema management and migrations.
@@ -113,13 +157,29 @@ npm run db:studio
 
 ### Database Schema
 
-SQLite database (`database.db`) managed by Drizzle ORM:
+**Dual Database Support:**
+- **Local Development**: Uses `better-sqlite3` with `database.db` file
+- **Production/CI**: Uses Turso (cloud SQLite) via `@libsql/client`
+- Database selection is automatic based on environment variables
+
+**Connection Logic** (`lib/db.ts`):
+- If `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` are set, connects to Turso
+- Otherwise, uses local SQLite file
+- Singleton pattern ensures one connection per process
+- Returns Drizzle ORM instance for type-safe queries
+
+**Schema:**
 - Schema defined in `lib/schema.ts`
 - Fields: id (primary key), title, album, artist, album_artist, filename, spotify_id
 - Index on (artist, album, album_artist)
 - Migrations stored in `drizzle/migrations/`
 
-The database file is encrypted with git-crypt and should not be committed unencrypted.
+**Environment Variables:**
+- `TURSO_DATABASE_URL`: Turso database URL (e.g., `libsql://db-name.turso.io`)
+- `TURSO_AUTH_TOKEN`: Turso authentication token
+- See `.env.example` for setup instructions
+
+The local database file is encrypted with git-crypt and should not be committed unencrypted.
 
 ### Security & Secrets
 
@@ -127,6 +187,30 @@ The database file is encrypted with git-crypt and should not be committed unencr
 - See `README_git_crypt.md` for setup instructions
 - `.env.local` contains SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET for Spotify API
 - Never commit unencrypted secrets
+
+## CI/CD Pipeline
+
+**GitHub Actions Workflow** (`.github/workflows/ci-cd.yml`):
+
+**On every push/PR:**
+1. Install dependencies (`npm ci`)
+2. Run linter (`npm run lint`) - must pass with 0 errors
+3. Run tests (`npm test`) - currently continue-on-error while updating test mocks
+4. Build application (`npm run build`) - must succeed
+
+**On push to main branch only:**
+5. Run production database migrations on Turso
+   - Uses `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` from GitHub secrets
+   - Automatically applies pending migrations to production database
+
+**GitHub Secrets Required:**
+- `TURSO_DATABASE_URL`: Production database URL
+- `TURSO_AUTH_TOKEN`: Production database auth token
+
+**Migration Strategy:**
+- Local development: Migrations run against local `database.db`
+- Production: Migrations auto-run via GitHub Actions on main branch merges
+- Migration script (`lib/migrate.ts`) automatically detects environment
 
 ## Future Work
 
