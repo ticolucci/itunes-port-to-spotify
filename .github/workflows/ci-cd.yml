@@ -101,6 +101,9 @@ jobs:
         env:
           TURSO_API_TOKEN: ${{ secrets.TURSO_API_TOKEN }}
         run: |
+          # Add Turso to PATH for this step
+          export PATH="$HOME/.turso/bin:$PATH"
+
           # Set branch database name based on PR number
           BRANCH_DB_NAME="itunes-spotify-pr-${{ github.event.pull_request.number }}"
           PRIMARY_DB_NAME="${{ secrets.TURSO_PRIMARY_DB_NAME }}"
