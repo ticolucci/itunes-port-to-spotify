@@ -2,7 +2,7 @@
 
 import { getDatabase } from "@/lib/db";
 import { songs as songsTable } from "@/lib/schema";
-import { asc } from "drizzle-orm";
+import { asc, sql } from "drizzle-orm";
 import type { Song } from "@/lib/types";
 
 export async function fetchSongs(options?: {
@@ -12,9 +12,9 @@ export async function fetchSongs(options?: {
   try {
     const db = getDatabase();
 
-    // Get all rows first to get the total
-    const allRows = await db.select().from(songsTable);
-    const total = allRows.length;
+    // Get total count efficiently without fetching all rows
+    const [{ count }] = await db.select({ count: sql<number>`count(*)` }).from(songsTable);
+    const total = count;
 
     // Build and execute paginated query
     const rows = options?.limit !== undefined && options?.offset !== undefined
