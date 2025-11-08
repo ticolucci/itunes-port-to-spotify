@@ -23,9 +23,6 @@ import {
   getSongsByArtist,
   saveSongMatch,
 } from './spotify-actions'
-import { searchSpotifyTracks } from './spotify'
-
-const mockSearchSpotifyTracks = vi.mocked(searchSpotifyTracks)
 
 describe('Spotify Actions', () => {
   beforeAll(() => {

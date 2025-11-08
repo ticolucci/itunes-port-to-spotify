@@ -69,6 +69,7 @@ export function ReviewCard({
           </p>
           <div className="flex flex-col items-center gap-3">
             {currentReview.spotifyMatch.album.images?.[0]?.url ? (
+              // eslint-disable-next-line @next/next/no-img-element -- Spotify CDN images are already optimized
               <img
                 src={currentReview.spotifyMatch.album.images[0].url}
                 alt={currentReview.spotifyMatch.album.name}

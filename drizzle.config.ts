@@ -5,6 +5,8 @@ export default defineConfig({
   out: "./drizzle/migrations",
   dialect: "sqlite",
   dbCredentials: {
+    // This is only used for generating migrations locally
+    // Migrations are run via lib/migrate.ts which supports both local and Turso
     url: "./database.db",
   },
   verbose: true,
