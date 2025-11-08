@@ -35,9 +35,9 @@ jobs:
       - name: Build application
         run: npm run build
 
-  # Job 2: Deploy (run migrations on main branch only)
+  # Job 2: Deploy (run migrations then deploy to Vercel on main branch only)
   deploy:
-    name: Run Production Migrations
+    name: Run Migrations and Deploy to Vercel
     runs-on: ubuntu-latest
     needs: test  # Only run if tests pass
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
@@ -61,7 +61,14 @@ jobs:
           TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
         run: npm run db:migrate
 
-      - name: Report deployment
+      - name: Deploy to Vercel
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
         run: |
-          echo "✅ Production migrations completed successfully!"
-          echo "Database: ${{ secrets.TURSO_DATABASE_URL }}"
+          echo "✅ Migrations completed successfully! Deploying to Vercel..."
+          npm install -g vercel@latest
+          vercel pull --yes --environment=production --token=$VERCEL_TOKEN
+          vercel build --prod --token=$VERCEL_TOKEN
+          vercel deploy --prebuilt --prod --token=$VERCEL_TOKEN

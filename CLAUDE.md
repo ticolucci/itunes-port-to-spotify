@@ -202,10 +202,16 @@ The local database file is encrypted with git-crypt and should not be committed 
 5. Run production database migrations on Turso
    - Uses `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` from GitHub secrets
    - Automatically applies pending migrations to production database
+6. Deploy to Vercel (only if migrations succeed)
+   - Uses Vercel CLI to deploy to production
+   - Ensures database is migrated before new code goes live
 
 **GitHub Secrets Required:**
 - `TURSO_DATABASE_URL`: Production database URL
 - `TURSO_AUTH_TOKEN`: Production database auth token
+- `VERCEL_TOKEN`: Vercel API token for deployments
+- `VERCEL_ORG_ID`: Vercel organization/team ID
+- `VERCEL_PROJECT_ID`: Vercel project ID
 
 **Migration Strategy:**
 - Local development: Migrations run against local `database.db`
@@ -223,10 +229,14 @@ This project is configured for deployment on Vercel. See `VERCEL_SETUP.md` for d
 2. Configure environment variables (SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET, TURSO_DATABASE_URL, TURSO_AUTH_TOKEN)
 3. Deploy
 
-**Automatic Deployments:**
-- Pushes to `main` branch → Production deployment
-- Pull requests → Preview deployments
-- Vercel auto-detects Next.js and uses optimal build settings
+**Deployment Strategy:**
+- **Production (main branch)**: Controlled by GitHub Actions
+  - Automatic Vercel deployments are disabled for production
+  - GitHub Actions runs migrations first, then deploys to Vercel
+  - Ensures database schema is updated before new code goes live
+- **Preview (pull requests)**: Automatically deployed by Vercel
+  - Creates preview URLs for testing before merge
+  - Uses preview environment variables
 
 **Configuration Files:**
 - `vercel.json` - Build and deployment settings

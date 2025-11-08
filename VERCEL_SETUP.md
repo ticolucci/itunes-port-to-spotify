@@ -53,25 +53,80 @@ Before clicking "Deploy", add these environment variables:
 4. Select all environments (Production, Preview, Development)
 5. Click "Add"
 
-### Step 5: Deploy
+### Step 5: Disable Automatic Deployments (Production Only)
 
-1. Click **"Deploy"**
-2. Wait for the build to complete (1-3 minutes)
-3. Once deployed, you'll get a URL like `https://your-app.vercel.app`
+**IMPORTANT**: To ensure migrations run before deployments, disable automatic deployments for production:
 
-### Step 6: Run Database Migrations
+1. After clicking "Deploy" for the first time, wait for initial deployment
+2. Go to your project settings: **Settings** → **Git**
+3. Under "Production Branch", find **"Ignored Build Step"** section
+4. Set it to: **Custom**
+5. Enter this command: `exit 1;`
 
-After first deployment, run migrations on your Turso database:
+This prevents Vercel from auto-deploying production when you push to `main`. Instead, GitHub Actions will handle deployment after migrations succeed.
 
+**Note**: Preview deployments for pull requests will still work automatically.
+
+### Step 6: Configure GitHub Actions for Deployment
+
+Add these secrets to your GitHub repository for automated deployments:
+
+**Go to**: GitHub repository → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**
+
+Add these three Vercel secrets:
+
+| Secret Name | Where to Get It |
+|-------------|----------------|
+| `VERCEL_TOKEN` | Vercel Dashboard → Settings → Tokens → Create Token |
+| `VERCEL_ORG_ID` | Run: `vercel project ls` (or find in `.vercel/project.json` after first deploy) |
+| `VERCEL_PROJECT_ID` | Run: `vercel project ls` (or find in `.vercel/project.json` after first deploy) |
+
+**To get your Vercel Token:**
+1. Go to https://vercel.com/account/tokens
+2. Click **"Create Token"**
+3. Name it "GitHub Actions"
+4. Select scope: **Full Account**
+5. Copy the token and add it to GitHub Secrets as `VERCEL_TOKEN`
+
+**To get ORG_ID and PROJECT_ID:**
+
+Option 1 - Via CLI:
 ```bash
-# Make sure your .env.local has Turso credentials
-npm run db:migrate
+vercel project ls
 ```
 
-Or manually via Turso CLI:
+Option 2 - Via project.json (after first deployment):
 ```bash
-turso db shell <db-name> < drizzle/migrations/0000_initial_migration.sql
+# Deploy once via CLI
+vercel
+
+# Then check the file
+cat .vercel/project.json
 ```
+
+The file will contain:
+```json
+{
+  "orgId": "team_xxxxxxxxxxxxx",
+  "projectId": "prj_xxxxxxxxxxxxx"
+}
+```
+
+Add `VERCEL_ORG_ID` and `VERCEL_PROJECT_ID` to GitHub Secrets.
+
+**Existing GitHub Secrets** (should already be set):
+- `TURSO_DATABASE_URL`
+- `TURSO_AUTH_TOKEN`
+
+### Step 7: Test the Deployment Pipeline
+
+1. Push a change to `main` branch
+2. GitHub Actions will:
+   - Run tests and linter
+   - Run database migrations
+   - Deploy to Vercel (only if migrations succeed)
+3. Check progress: GitHub → **Actions** tab
+4. Verify deployment: Check your Vercel dashboard
 
 ---
 
@@ -141,10 +196,16 @@ vercel env add TURSO_AUTH_TOKEN preview
 
 ### Automatic Deployments
 
-Once connected, Vercel will automatically:
-- Deploy on every push to `main` branch (production)
-- Create preview deployments for pull requests
-- Run your build and tests automatically
+**Production Deployments** (main branch):
+- Triggered by GitHub Actions (NOT automatic from Vercel)
+- Workflow: Tests → Migrations → Vercel Deploy
+- Ensures database migrations complete before deployment
+- Check status in GitHub Actions tab
+
+**Preview Deployments** (pull requests):
+- Automatically created by Vercel for every PR
+- Use preview environment variables
+- Great for testing features before merging
 
 ### Monitor Deployments
 
@@ -174,6 +235,18 @@ Once connected, Vercel will automatically:
 - Check Spotify app settings allow your Vercel domain
 - May need to add redirect URIs in Spotify Dashboard
 
+### GitHub Actions Deployment Fails
+
+- Check GitHub Actions logs: Repository → **Actions** tab
+- Verify all GitHub Secrets are set correctly:
+  - `TURSO_DATABASE_URL`
+  - `TURSO_AUTH_TOKEN`
+  - `VERCEL_TOKEN`
+  - `VERCEL_ORG_ID`
+  - `VERCEL_PROJECT_ID`
+- Ensure Vercel project is connected to GitHub repo
+- Check that "Ignored Build Step" is configured in Vercel settings
+
 ---
 
 ## Development Workflow
@@ -188,9 +261,21 @@ vercel dev
 # Deploy to preview
 git push origin feature-branch  # Creates preview deployment automatically
 
-# Deploy to production
-git push origin main  # Deploys to production automatically
+# Deploy to production (via GitHub Actions)
+git push origin main  # Triggers: Tests → Migrations → Vercel Deploy
 ```
+
+**Production Deployment Flow:**
+1. Push to `main` branch
+2. GitHub Actions runs:
+   - ✅ Install dependencies
+   - ✅ Run linter
+   - ✅ Run tests
+   - ✅ Build application
+   - ✅ Run database migrations on Turso
+   - ✅ Deploy to Vercel (only if all above succeed)
+3. Monitor progress in GitHub Actions tab
+4. Check deployment in Vercel dashboard
 
 ---
 
