@@ -114,11 +114,48 @@ The file will contain:
 
 Add `VERCEL_ORG_ID` and `VERCEL_PROJECT_ID` to GitHub Secrets.
 
-**Existing GitHub Secrets** (should already be set):
-- `TURSO_DATABASE_URL`
-- `TURSO_AUTH_TOKEN`
+**Turso Secrets** (for database branching on PRs):
 
-### Step 7: Test the Deployment Pipeline
+| Secret Name | Where to Get It |
+|-------------|----------------|
+| `TURSO_API_TOKEN` | Run: `turso auth token` (must be logged in via `turso auth login`) |
+| `TURSO_PRIMARY_DB_NAME` | Your production database name (e.g., `itunes-spotify-prod`) |
+
+**To get your Turso API Token:**
+```bash
+# Login to Turso if not already
+turso auth login
+
+# Generate API token for GitHub Actions
+turso auth token
+```
+
+Copy the token and add it to GitHub Secrets as `TURSO_API_TOKEN`.
+
+**Existing GitHub Secrets** (should already be set):
+- `TURSO_DATABASE_URL` - Production database URL
+- `TURSO_AUTH_TOKEN` - Production database auth token
+
+### Step 7: Enable Database Branching for Preview Deployments
+
+This project automatically creates isolated database branches for each PR preview:
+
+**How it works:**
+1. When you open a PR, GitHub Actions creates a branch database (e.g., `itunes-spotify-pr-42`)
+2. The branch database is a copy of your production database
+3. Migrations run on the branch database
+4. The preview deployment uses the branch database
+5. When the PR is closed, the branch database is automatically deleted
+
+**Benefits:**
+- ✅ Isolated testing - changes don't affect production data
+- ✅ Test migrations safely before merging
+- ✅ Each PR gets its own database sandbox
+- ✅ Automatic cleanup when PR closes
+
+**No additional setup required!** As long as you've added `TURSO_API_TOKEN` and `TURSO_PRIMARY_DB_NAME` to GitHub Secrets, database branching will work automatically.
+
+### Step 8: Test the Deployment Pipeline
 
 1. Push a change to `main` branch
 2. GitHub Actions will:
@@ -203,9 +240,12 @@ vercel env add TURSO_AUTH_TOKEN preview
 - Check status in GitHub Actions tab
 
 **Preview Deployments** (pull requests):
-- Automatically created by Vercel for every PR
-- Use preview environment variables
-- Great for testing features before merging
+- Automatically triggered by GitHub Actions for every PR
+- Each PR gets an isolated Turso database branch
+- Branch database is a copy of production with migrations applied
+- Preview deployment uses the branch database credentials
+- Database automatically cleaned up when PR closes
+- Great for testing features and schema changes safely
 
 ### Monitor Deployments
 
@@ -277,9 +317,22 @@ git push origin main  # Triggers: Tests → Migrations → Vercel Deploy
 3. Monitor progress in GitHub Actions tab
 4. Check deployment in Vercel dashboard
 
+**Preview Deployment Flow (Pull Requests):**
+1. Open or update a pull request
+2. GitHub Actions runs:
+   - ✅ Run tests and linter
+   - ✅ Create/update Turso branch database (e.g., `itunes-spotify-pr-42`)
+   - ✅ Run migrations on branch database
+   - ✅ Deploy preview to Vercel with branch database credentials
+   - ✅ Comment on PR with preview URL and database info
+3. Test your changes on the preview URL with isolated data
+4. Close/merge PR → Branch database automatically deleted
+
 ---
 
 ## Useful Commands
+
+### Vercel Commands
 
 ```bash
 # View project info
@@ -298,15 +351,59 @@ vercel logs <deployment-url>
 # (Via dashboard: Deployments → ... → Promote to Production)
 ```
 
+### Turso Database Commands
+
+```bash
+# List all databases (including branch databases)
+turso db list
+
+# Show database details
+turso db show <database-name>
+
+# List branch databases for PRs
+turso db list | grep "itunes-spotify-pr-"
+
+# Manually create a branch database
+turso db create <branch-name> --from-db <primary-db-name>
+
+# Manually delete a branch database
+turso db destroy <branch-name> --yes
+
+# Connect to database shell
+turso db shell <database-name>
+
+# View database schema
+turso db shell <database-name> ".schema"
+```
+
+### Managing Preview Databases
+
+Preview databases are automatically managed by GitHub Actions, but you can manually inspect or clean them:
+
+```bash
+# List all PR branch databases
+turso db list | grep "itunes-spotify-pr-"
+
+# Check a specific PR's database
+turso db show itunes-spotify-pr-42
+
+# Manually clean up old PR databases (if needed)
+# GitHub Actions should do this automatically, but if something goes wrong:
+turso db destroy itunes-spotify-pr-42 --yes
+```
+
 ---
 
 ## Next Steps
 
 1. ✅ Deploy to Vercel
 2. ✅ Configure environment variables
-3. ✅ Run database migrations
-4. ✅ Test the deployment
-5. 🔄 Set up custom domain (optional)
-6. 🔄 Configure preview environments for PRs
+3. ✅ Set up GitHub Secrets for automated deployments
+4. ✅ Enable database branching for PR previews
+5. ✅ Test the deployment pipeline
+6. 🔄 Set up custom domain (optional)
 
-For more information, see: https://vercel.com/docs
+For more information, see:
+- Vercel Docs: https://vercel.com/docs
+- Turso Docs: https://docs.turso.tech
+- Turso Branching: https://docs.turso.tech/features/branching

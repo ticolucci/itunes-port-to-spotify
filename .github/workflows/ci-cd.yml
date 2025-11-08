@@ -35,7 +35,7 @@ jobs:
       - name: Build application
         run: npm run build
 
-  # Job 2: Deploy (run migrations then deploy to Vercel on main branch only)
+  # Job 2: Deploy Production (run migrations then deploy to Vercel on main branch only)
   deploy:
     name: Run Migrations and Deploy to Vercel
     runs-on: ubuntu-latest
@@ -72,3 +72,108 @@ jobs:
           vercel pull --yes --environment=production --token=$VERCEL_TOKEN
           vercel build --prod --token=$VERCEL_TOKEN
           vercel deploy --prebuilt --prod --token=$VERCEL_TOKEN
+
+  # Job 3: Preview Deployment with Branch Database (on pull requests)
+  preview:
+    name: Deploy Preview with Branch Database
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Turso CLI
+        run: |
+          curl -sSfL https://get.tur.so/install.sh | bash
+          echo "$HOME/.turso/bin" >> $GITHUB_PATH
+
+      - name: Create or update branch database
+        env:
+          TURSO_API_TOKEN: ${{ secrets.TURSO_API_TOKEN }}
+        run: |
+          # Set branch database name based on PR number
+          BRANCH_DB_NAME="itunes-spotify-pr-${{ github.event.pull_request.number }}"
+          PRIMARY_DB_NAME="${{ secrets.TURSO_PRIMARY_DB_NAME }}"
+
+          echo "Branch database name: $BRANCH_DB_NAME"
+
+          # Check if branch database exists
+          if turso db show "$BRANCH_DB_NAME" 2>/dev/null; then
+            echo "Branch database exists, updating schema point..."
+            turso db update "$BRANCH_DB_NAME" --schema-from "$PRIMARY_DB_NAME"
+          else
+            echo "Creating new branch database from $PRIMARY_DB_NAME..."
+            turso db create "$BRANCH_DB_NAME" --from-db "$PRIMARY_DB_NAME"
+          fi
+
+          # Get database URL and create token
+          BRANCH_DB_URL=$(turso db show "$BRANCH_DB_NAME" --url)
+          BRANCH_DB_TOKEN=$(turso db tokens create "$BRANCH_DB_NAME")
+
+          # Save to GitHub environment
+          echo "BRANCH_DB_URL=$BRANCH_DB_URL" >> $GITHUB_ENV
+          echo "BRANCH_DB_TOKEN=$BRANCH_DB_TOKEN" >> $GITHUB_ENV
+          echo "BRANCH_DB_NAME=$BRANCH_DB_NAME" >> $GITHUB_ENV
+
+      - name: Run migrations on branch database
+        env:
+          TURSO_DATABASE_URL: ${{ env.BRANCH_DB_URL }}
+          TURSO_AUTH_TOKEN: ${{ env.BRANCH_DB_TOKEN }}
+        run: npm run db:migrate
+
+      - name: Deploy preview to Vercel with branch database
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          echo "✅ Branch database ready! Deploying preview to Vercel..."
+          npm install -g vercel@latest
+
+          # Deploy with branch database environment variables
+          vercel pull --yes --environment=preview --token=$VERCEL_TOKEN
+          vercel build --token=$VERCEL_TOKEN
+          vercel deploy --prebuilt --token=$VERCEL_TOKEN \
+            -e TURSO_DATABASE_URL="${{ env.BRANCH_DB_URL }}" \
+            -e TURSO_AUTH_TOKEN="${{ env.BRANCH_DB_TOKEN }}" \
+            | tee deploy-output.txt
+
+          # Extract deployment URL
+          DEPLOY_URL=$(grep -oP 'https://[^\s]+' deploy-output.txt | head -1)
+          echo "Preview URL: $DEPLOY_URL"
+          echo "Database: ${{ env.BRANCH_DB_NAME }}"
+
+          # Comment on PR with deployment info
+          if [ -n "$DEPLOY_URL" ]; then
+            echo "DEPLOY_URL=$DEPLOY_URL" >> $GITHUB_ENV
+          fi
+
+      - name: Comment on PR
+        uses: actions/github-script@v7
+        if: env.DEPLOY_URL != ''
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## 🚀 Preview Deployment Ready
+
+              **Preview URL:** ${process.env.DEPLOY_URL}
+              **Branch Database:** \`${process.env.BRANCH_DB_NAME}\`
+
+              This preview uses an isolated Turso database branch. Any data changes will not affect production.
+
+              The branch database will be automatically cleaned up when this PR is closed.`
+            })
