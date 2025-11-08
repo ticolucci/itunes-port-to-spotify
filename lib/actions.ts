@@ -2,7 +2,7 @@
 
 import { getDatabase } from "@/lib/db";
 import { songs as songsTable } from "@/lib/schema";
-import { asc } from "drizzle-orm";
+import { asc, count } from "drizzle-orm";
 import type { Song } from "@/lib/types";
 
 export async function fetchSongs(options?: {
@@ -12,9 +12,11 @@ export async function fetchSongs(options?: {
   try {
     const db = getDatabase();
 
-    // Get all rows first to get the total
-    const allRows = await db.select().from(songsTable);
-    const total = allRows.length;
+    // Get total count efficiently without fetching all rows
+    // @ts-expect-error - Drizzle's select() accepts custom fields despite TypeScript thinking otherwise
+    const countResult = await db.select({ value: count() }).from(songsTable);
+    // @ts-expect-error - TypeScript doesn't infer the custom select shape correctly
+    const total = Number(countResult[0]?.value ?? 0);
 
     // Build and execute paginated query
     const baseQuery = db.select().from(songsTable).orderBy(asc(songsTable.id));

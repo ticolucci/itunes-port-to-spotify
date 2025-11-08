@@ -5,10 +5,11 @@ import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import path from 'path'
 
 let testDb: Database.Database
+let drizzleDb: ReturnType<typeof drizzle>
 
 // Mock the database module before importing anything
 vi.mock('./db', () => ({
-  getDatabase: () => testDb,
+  getDatabase: () => drizzleDb,
   closeDatabase: vi.fn(),
 }))
 
@@ -21,8 +22,8 @@ describe('fetchSongs Server Action', () => {
     testDb = new Database(':memory:')
 
     // Use Drizzle migrations to create schema (single source of truth)
-    const db = drizzle(testDb)
-    migrate(db, {
+    drizzleDb = drizzle(testDb)
+    migrate(drizzleDb, {
       migrationsFolder: path.join(process.cwd(), 'drizzle/migrations'),
     })
   })
