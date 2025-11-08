@@ -10,16 +10,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Install Turso CLI
-        run: |
-          curl -sSfL https://get.tur.so/install.sh | bash
-          echo "$HOME/.turso/bin" >> $GITHUB_PATH
-
       - name: Delete branch database
         env:
           TURSO_API_TOKEN: ${{ secrets.TURSO_API_TOKEN }}
         run: |
-          # Add Turso to PATH for this step
+          # Install Turso CLI
+          curl -sSfL https://get.tur.so/install.sh | bash
           export PATH="$HOME/.turso/bin:$PATH"
 
           BRANCH_DB_NAME="itunes-spotify-pr-${{ github.event.pull_request.number }}"
