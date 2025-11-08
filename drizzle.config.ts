@@ -6,8 +6,8 @@ export default defineConfig({
   dialect: "sqlite",
   dbCredentials: {
     // This is only used for generating migrations locally
-    // Migrations are run via lib/migrate.ts which supports both local and Turso
-    url: "./database.db",
+    // Migrations are run via lib/migrate.ts which uses libsql for both local and Turso
+    url: "file:./database.db",
   },
   verbose: true,
   strict: true,

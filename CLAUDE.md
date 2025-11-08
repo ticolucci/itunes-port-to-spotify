@@ -132,7 +132,7 @@ npm run db:studio
 - Drizzle ORM schema definition for the songs table
 - Auto-generates TypeScript types (`Song`, `NewSong`) for type-safe queries
 - Fields: id, title, artist, album, album_artist, filename, spotify_id
-- Database connection managed by `lib/db.ts` singleton with WAL mode
+- Database connection managed by `lib/db.ts` singleton using libsql client
 
 **Spotify Integration** (`lib/spotify.ts`)
 - Modern Spotify API client using official `@spotify/web-api-ts-sdk`
@@ -157,14 +157,15 @@ npm run db:studio
 
 ### Database Schema
 
-**Dual Database Support:**
-- **Local Development**: Uses `better-sqlite3` with `database.db` file
-- **Production/CI**: Uses Turso (cloud SQLite) via `@libsql/client`
+**Unified Database Client:**
+- Uses `@libsql/client` for all environments (local development, production, CI)
+- **Local Development**: Connects to local SQLite file via `file:./database.db` URL
+- **Production/CI**: Connects to Turso (cloud SQLite) via HTTPS URL
 - Database selection is automatic based on environment variables
 
 **Connection Logic** (`lib/db.ts`):
 - If `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` are set, connects to Turso
-- Otherwise, uses local SQLite file
+- Otherwise, uses local SQLite file via libsql's `file:` protocol
 - Singleton pattern ensures one connection per process
 - Returns Drizzle ORM instance for type-safe queries
 
