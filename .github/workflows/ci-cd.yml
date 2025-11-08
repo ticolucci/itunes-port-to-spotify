@@ -35,7 +35,6 @@ jobs:
       - name: Build application
         run: npm run build
 
-  # Job 2: Deploy Production (run migrations then deploy to Vercel on main branch only)
   deploy:
     name: Run Migrations and Deploy to Vercel
     runs-on: ubuntu-latest
