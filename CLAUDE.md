@@ -212,6 +212,32 @@ The local database file is encrypted with git-crypt and should not be committed 
 - Production: Migrations auto-run via GitHub Actions on main branch merges
 - Migration script (`lib/migrate.ts`) automatically detects environment
 
+## Deployment
+
+**Vercel Deployment:**
+
+This project is configured for deployment on Vercel. See `VERCEL_SETUP.md` for detailed setup instructions.
+
+**Quick Start:**
+1. Connect your GitHub repository to Vercel
+2. Configure environment variables (SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET, TURSO_DATABASE_URL, TURSO_AUTH_TOKEN)
+3. Deploy
+
+**Automatic Deployments:**
+- Pushes to `main` branch → Production deployment
+- Pull requests → Preview deployments
+- Vercel auto-detects Next.js and uses optimal build settings
+
+**Configuration Files:**
+- `vercel.json` - Build and deployment settings
+- `.vercelignore` - Excludes local database, tests, and documentation from deployment
+
+**Environment Variables Required in Vercel:**
+- `SPOTIFY_CLIENT_ID` - Spotify API credentials
+- `SPOTIFY_CLIENT_SECRET` - Spotify API credentials
+- `TURSO_DATABASE_URL` - Production database URL
+- `TURSO_AUTH_TOKEN` - Production database auth token
+
 ## Future Work
 
 See `Stories.md` for planned features and current priorities, including:
