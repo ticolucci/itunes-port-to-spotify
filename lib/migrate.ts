@@ -1,9 +1,6 @@
-import { drizzle as drizzleBetterSqlite } from "drizzle-orm/better-sqlite3";
-import { migrate as migrateBetterSqlite } from "drizzle-orm/better-sqlite3/migrator";
-import { drizzle as drizzleLibsql } from "drizzle-orm/libsql";
-import { migrate as migrateLibsql } from "drizzle-orm/libsql/migrator";
+import { drizzle } from "drizzle-orm/libsql";
+import { migrate } from "drizzle-orm/libsql/migrator";
 import { createClient } from "@libsql/client";
-import Database from "better-sqlite3";
 import path from "path";
 
 /**
@@ -37,34 +34,30 @@ export async function runMigrations() {
       url: tursoUrl,
       authToken: tursoAuthToken,
     });
-    const db = drizzleLibsql(client);
+    const db = drizzle(client);
 
     try {
-      await migrateLibsql(db, { migrationsFolder });
+      await migrate(db, { migrationsFolder });
       console.log("✓ Migrations completed successfully on Turso");
     } catch (error) {
       console.error("✗ Migration failed:", error);
       throw error;
     }
   } else {
-    // Use local SQLite for development
+    // Use local SQLite for development via libsql
     console.log("Using local SQLite database");
     const dbPath = path.join(process.cwd(), "database.db");
-    const sqlite = new Database(dbPath);
-
-    // Enable WAL mode for better concurrent access
-    sqlite.pragma("journal_mode = WAL");
-
-    const db = drizzleBetterSqlite(sqlite);
+    const client = createClient({
+      url: `file:${dbPath}`,
+    });
+    const db = drizzle(client);
 
     try {
-      migrateBetterSqlite(db, { migrationsFolder });
+      await migrate(db, { migrationsFolder });
       console.log("✓ Migrations completed successfully on local database");
     } catch (error) {
       console.error("✗ Migration failed:", error);
       throw error;
-    } finally {
-      sqlite.close();
     }
   }
 }
