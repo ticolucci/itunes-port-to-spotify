@@ -1,6 +1,8 @@
 "use server";
 
 import { getDatabase } from "@/lib/db";
+import { songs as songsTable } from "@/lib/schema";
+import { asc, sql } from "drizzle-orm";
 import type { Song } from "@/lib/types";
 
 export async function fetchSongs(options?: {
@@ -10,28 +12,19 @@ export async function fetchSongs(options?: {
   try {
     const db = getDatabase();
 
-    // Get total count of all songs
-    const countStmt = db.prepare("SELECT COUNT(*) as total FROM songs");
-    const countResult = countStmt.get() as { total: number };
-    const total = countResult.total;
+    // Get all rows first to get the total
+    const allRows = await db.select().from(songsTable);
+    const total = allRows.length;
 
-    // Build query for songs
-    let query = "SELECT * FROM songs ORDER BY id";
-
-    // Add pagination if provided
-    if (options?.limit) {
-      query += ` LIMIT ${options.limit}`;
-      if (options?.offset) {
-        query += ` OFFSET ${options.offset}`;
-      }
-    }
-
-    // Execute query and fetch rows
-    const stmt = db.prepare(query);
-    const rows = stmt.all();
+    // Build and execute paginated query
+    const rows = options?.limit !== undefined && options?.offset !== undefined
+      ? await db.select().from(songsTable).orderBy(asc(songsTable.id)).limit(options.limit).offset(options.offset)
+      : options?.limit !== undefined
+      ? await db.select().from(songsTable).orderBy(asc(songsTable.id)).limit(options.limit)
+      : await db.select().from(songsTable).orderBy(asc(songsTable.id));
 
     // Map database rows to Song objects
-    const songs: Song[] = rows.map((row: any) => ({
+    const songs: Song[] = rows.map((row) => ({
       id: row.id,
       title: row.title || "",
       artist: row.artist || "",

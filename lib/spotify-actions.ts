@@ -1,6 +1,8 @@
 'use server'
 
 import { getDatabase } from './db'
+import { songs as songsTable } from './schema'
+import { eq, and, isNull } from 'drizzle-orm'
 import type { Song } from './types'
 import { searchSpotifyTracks, type SpotifyTrack } from './spotify'
 
@@ -17,20 +19,29 @@ export async function getNextUnmatchedSong(): Promise<
   try {
     const db = getDatabase()
 
-    const song = db
-      .prepare(
-        `SELECT id, title, artist, album, album_artist, filename, spotify_id
-         FROM songs
-         WHERE spotify_id IS NULL
-         LIMIT 1`
-      )
-      .get() as Song | undefined
+    const result = await db
+      .select()
+      .from(songsTable)
+      .where(isNull(songsTable.spotify_id))
+      .limit(1)
 
-    if (!song) {
+    const row = result[0]
+
+    if (!row) {
       return {
         success: false,
         error: 'No unmatched songs found',
       }
+    }
+
+    const song: Song = {
+      id: row.id,
+      title: row.title || '',
+      artist: row.artist || '',
+      album: row.album || '',
+      album_artist: row.album_artist || '',
+      filename: row.filename || '',
+      spotify_id: row.spotify_id || undefined,
     }
 
     return {
@@ -55,14 +66,21 @@ export async function getSongsByArtist(
   try {
     const db = getDatabase()
 
-    const songs = db
-      .prepare(
-        `SELECT id, title, artist, album, album_artist, filename, spotify_id
-         FROM songs
-         WHERE artist = ?
-         ORDER BY album, title`
-      )
-      .all(artist) as Song[]
+    const rows = await db
+      .select()
+      .from(songsTable)
+      .where(eq(songsTable.artist, artist))
+      .orderBy(songsTable.album, songsTable.title)
+
+    const songs: Song[] = rows.map((row) => ({
+      id: row.id,
+      title: row.title || '',
+      artist: row.artist || '',
+      album: row.album || '',
+      album_artist: row.album_artist || '',
+      filename: row.filename || '',
+      spotify_id: row.spotify_id || undefined,
+    }))
 
     return {
       success: true,
@@ -110,14 +128,21 @@ export async function getSongsByAlbum(
   try {
     const db = getDatabase()
 
-    const songs = db
-      .prepare(
-        `SELECT id, title, artist, album, album_artist, filename, spotify_id
-         FROM songs
-         WHERE artist = ? AND album = ?
-         ORDER BY title`
-      )
-      .all(artist, album) as Song[]
+    const rows = await db
+      .select()
+      .from(songsTable)
+      .where(and(eq(songsTable.artist, artist), eq(songsTable.album, album)))
+      .orderBy(songsTable.title)
+
+    const songs: Song[] = rows.map((row) => ({
+      id: row.id,
+      title: row.title || '',
+      artist: row.artist || '',
+      album: row.album || '',
+      album_artist: row.album_artist || '',
+      filename: row.filename || '',
+      spotify_id: row.spotify_id || undefined,
+    }))
 
     return {
       success: true,
@@ -141,14 +166,13 @@ export async function getNextUnmatchedAlbum(): Promise<
   try {
     const db = getDatabase()
 
-    const result = db
-      .prepare(
-        `SELECT artist, album
-         FROM songs
-         WHERE spotify_id IS NULL
-         LIMIT 1`
-      )
-      .get() as { artist: string; album: string } | undefined
+    const results = await db
+      .select()
+      .from(songsTable)
+      .where(isNull(songsTable.spotify_id))
+      .limit(1)
+
+    const result = results[0]
 
     if (!result) {
       return {
@@ -159,8 +183,8 @@ export async function getNextUnmatchedAlbum(): Promise<
 
     return {
       success: true,
-      artist: result.artist,
-      album: result.album,
+      artist: result.artist || '',
+      album: result.album || '',
     }
   } catch (error) {
     console.error('Error fetching unmatched album:', error)
@@ -206,11 +230,13 @@ export async function saveSongMatch(
     const db = getDatabase()
 
     // Check if song exists
-    const song = db
-      .prepare('SELECT id FROM songs WHERE id = ?')
-      .get(songId)
+    const existingSongs = await db
+      .select()
+      .from(songsTable)
+      .where(eq(songsTable.id, songId))
+      .limit(1)
 
-    if (!song) {
+    if (existingSongs.length === 0) {
       return {
         success: false,
         error: `Song with ID ${songId} not found`,
@@ -218,10 +244,10 @@ export async function saveSongMatch(
     }
 
     // Update the spotify_id
-    db.prepare('UPDATE songs SET spotify_id = ? WHERE id = ?').run(
-      spotifyId,
-      songId
-    )
+    await db
+      .update(songsTable)
+      .set({ spotify_id: spotifyId })
+      .where(eq(songsTable.id, songId))
 
     return { success: true }
   } catch (error) {
@@ -243,11 +269,13 @@ export async function clearSongMatch(
     const db = getDatabase()
 
     // Check if song exists
-    const song = db
-      .prepare('SELECT id FROM songs WHERE id = ?')
-      .get(songId)
+    const existingSongs = await db
+      .select()
+      .from(songsTable)
+      .where(eq(songsTable.id, songId))
+      .limit(1)
 
-    if (!song) {
+    if (existingSongs.length === 0) {
       return {
         success: false,
         error: `Song with ID ${songId} not found`,
@@ -255,7 +283,10 @@ export async function clearSongMatch(
     }
 
     // Clear the spotify_id
-    db.prepare('UPDATE songs SET spotify_id = NULL WHERE id = ?').run(songId)
+    await db
+      .update(songsTable)
+      .set({ spotify_id: null })
+      .where(eq(songsTable.id, songId))
 
     return { success: true }
   } catch (error) {
