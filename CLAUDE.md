@@ -202,15 +202,70 @@ The local database file is encrypted with git-crypt and should not be committed 
 5. Run production database migrations on Turso
    - Uses `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` from GitHub secrets
    - Automatically applies pending migrations to production database
+6. Deploy to Vercel (only if migrations succeed)
+   - Uses Vercel CLI to deploy to production
+   - Ensures database is migrated before new code goes live
+
+**On pull requests:**
+7. Create or update Turso branch database for the PR via Platform API
+   - Branch database named `itunes-spotify-pr-<number>`
+   - Seeded from production database (schema + data copy)
+   - Provides isolated database for preview testing
+8. Run migrations on branch database
+9. Deploy preview to Vercel with branch database credentials (7-day tokens)
+10. Comment on PR with preview URL and database info
+11. Auto-cleanup branch database when PR closes (via API)
 
 **GitHub Secrets Required:**
 - `TURSO_DATABASE_URL`: Production database URL
 - `TURSO_AUTH_TOKEN`: Production database auth token
+- `TURSO_API_TOKEN`: Turso Platform API token for managing branch databases
+- `TURSO_ORG_NAME`: Turso organization name
+- `TURSO_PRIMARY_DB_NAME`: Name of primary database to branch from
+- `VERCEL_TOKEN`: Vercel API token for deployments
+- `VERCEL_ORG_ID`: Vercel organization/team ID
+- `VERCEL_PROJECT_ID`: Vercel project ID
 
 **Migration Strategy:**
 - Local development: Migrations run against local `database.db`
 - Production: Migrations auto-run via GitHub Actions on main branch merges
 - Migration script (`lib/migrate.ts`) automatically detects environment
+
+## Deployment
+
+**Vercel Deployment:**
+
+This project is configured for deployment on Vercel. See `VERCEL_SETUP.md` for detailed setup instructions.
+
+**Quick Start:**
+1. Connect your GitHub repository to Vercel
+2. Configure environment variables (SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET, TURSO_DATABASE_URL, TURSO_AUTH_TOKEN)
+3. Deploy
+
+**Deployment Strategy:**
+- **Production (main branch)**: Controlled by GitHub Actions
+  - Automatic Vercel deployments are disabled for production
+  - GitHub Actions runs migrations first, then deploys to Vercel
+  - Ensures database schema is updated before new code goes live
+- **Preview (pull requests)**: Controlled by GitHub Actions with Turso database branching
+  - Each PR gets an isolated Turso database branch via Platform API
+  - Branch database is seeded from production (schema + data copy)
+  - Migrations run on branch database before preview deployment
+  - Temporary credentials (7-day expiration) generated via API
+  - Preview deployment uses branch database credentials
+  - Safe testing of schema changes and features without affecting production
+  - Branch database automatically deleted via API when PR closes
+  - No CLI installation required - all operations use Turso Platform API
+
+**Configuration Files:**
+- `vercel.json` - Build and deployment settings
+- `.vercelignore` - Excludes local database, tests, and documentation from deployment
+
+**Environment Variables Required in Vercel:**
+- `SPOTIFY_CLIENT_ID` - Spotify API credentials
+- `SPOTIFY_CLIENT_SECRET` - Spotify API credentials
+- `TURSO_DATABASE_URL` - Production database URL
+- `TURSO_AUTH_TOKEN` - Production database auth token
 
 ## Future Work
 

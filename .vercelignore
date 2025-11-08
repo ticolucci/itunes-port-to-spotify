@@ -1,0 +1,42 @@
+# Local database (production uses Turso)
+database.db
+database.db-shm
+database.db-wal
+
+# Test files
+**/*.test.ts
+**/*.test.tsx
+**/__tests__/
+.vitest/
+coverage/
+
+# Development files
+.env.local
+.env*.local
+
+# Git-crypt encrypted files
+*.key
+*.pem
+
+# Scripts
+scripts/
+
+# Documentation
+README_git_crypt.md
+Stories.md
+CLAUDE.md
+
+# Version control
+.git/
+.gitattributes
+
+# Editor
+.vscode/
+.idea/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
