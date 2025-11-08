@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Loader2, Check, ChevronRight, Music, Undo2 } from 'lucide-react'
 import type { Song } from '@/lib/types'
@@ -33,11 +33,7 @@ export default function SpotifyMatcherPage() {
   const [matchingIds, setMatchingIds] = useState<Set<number>>(new Set())
   const [currentReviewIndex, setCurrentReviewIndex] = useState(0)
 
-  useEffect(() => {
-    loadNextAlbum()
-  }, [])
-
-  async function loadNextAlbum() {
+  const loadNextAlbum = useCallback(async () => {
     try {
       setLoading(true)
       setError(null)
@@ -93,7 +89,12 @@ export default function SpotifyMatcherPage() {
       setError(err instanceof Error ? err.message : 'Unknown error')
       setLoading(false)
     }
-  }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    loadNextAlbum()
+  }, [loadNextAlbum])
 
   async function searchForMatch(index: number, song: Song) {
     // Update searching state
@@ -399,6 +400,7 @@ export default function SpotifyMatcherPage() {
                 ) : songWithMatch.spotifyMatch ? (
                   <>
                     {albumImage && (
+                      // eslint-disable-next-line @next/next/no-img-element -- Spotify CDN images are already optimized
                       <img
                         src={albumImage}
                         alt={songWithMatch.spotifyMatch.album.name}
