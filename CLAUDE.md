@@ -207,18 +207,20 @@ The local database file is encrypted with git-crypt and should not be committed 
    - Ensures database is migrated before new code goes live
 
 **On pull requests:**
-7. Create or update Turso branch database for the PR
+7. Create or update Turso branch database for the PR via Platform API
    - Branch database named `itunes-spotify-pr-<number>`
+   - Seeded from production database (schema + data copy)
    - Provides isolated database for preview testing
 8. Run migrations on branch database
-9. Deploy preview to Vercel with branch database credentials
+9. Deploy preview to Vercel with branch database credentials (7-day tokens)
 10. Comment on PR with preview URL and database info
-11. Auto-cleanup branch database when PR closes
+11. Auto-cleanup branch database when PR closes (via API)
 
 **GitHub Secrets Required:**
 - `TURSO_DATABASE_URL`: Production database URL
 - `TURSO_AUTH_TOKEN`: Production database auth token
-- `TURSO_API_TOKEN`: Turso API token for creating/managing branch databases
+- `TURSO_API_TOKEN`: Turso Platform API token for managing branch databases
+- `TURSO_ORG_NAME`: Turso organization name
 - `TURSO_PRIMARY_DB_NAME`: Name of primary database to branch from
 - `VERCEL_TOKEN`: Vercel API token for deployments
 - `VERCEL_ORG_ID`: Vercel organization/team ID
@@ -246,11 +248,14 @@ This project is configured for deployment on Vercel. See `VERCEL_SETUP.md` for d
   - GitHub Actions runs migrations first, then deploys to Vercel
   - Ensures database schema is updated before new code goes live
 - **Preview (pull requests)**: Controlled by GitHub Actions with Turso database branching
-  - Each PR gets an isolated Turso database branch (copy of production)
+  - Each PR gets an isolated Turso database branch via Platform API
+  - Branch database is seeded from production (schema + data copy)
   - Migrations run on branch database before preview deployment
+  - Temporary credentials (7-day expiration) generated via API
   - Preview deployment uses branch database credentials
   - Safe testing of schema changes and features without affecting production
-  - Branch database automatically deleted when PR closes
+  - Branch database automatically deleted via API when PR closes
+  - No CLI installation required - all operations use Turso Platform API
 
 **Configuration Files:**
 - `vercel.json` - Build and deployment settings

@@ -13,18 +13,23 @@ jobs:
       - name: Delete branch database
         env:
           TURSO_API_TOKEN: ${{ secrets.TURSO_API_TOKEN }}
+          TURSO_ORG_NAME: ${{ secrets.TURSO_ORG_NAME }}
         run: |
-          # Install Turso CLI
-          curl -sSfL https://get.tur.so/install.sh | bash
-          export PATH="$HOME/.turso/bin:$PATH"
-
           BRANCH_DB_NAME="itunes-spotify-pr-${{ github.event.pull_request.number }}"
+          API_BASE="https://api.turso.tech/v1/organizations/${TURSO_ORG_NAME}"
 
           echo "Attempting to delete branch database: $BRANCH_DB_NAME"
 
-          # Check if database exists before trying to delete
-          if turso db show "$BRANCH_DB_NAME" 2>/dev/null; then
-            turso db destroy "$BRANCH_DB_NAME" --yes
+          # Check if database exists
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Authorization: Bearer ${TURSO_API_TOKEN}" \
+            "${API_BASE}/databases/${BRANCH_DB_NAME}")
+
+          if [ "$HTTP_CODE" = "200" ]; then
+            # Delete the database
+            curl -X DELETE \
+              -H "Authorization: Bearer ${TURSO_API_TOKEN}" \
+              "${API_BASE}/databases/${BRANCH_DB_NAME}"
             echo "✅ Branch database $BRANCH_DB_NAME deleted successfully"
           else
             echo "ℹ️  Branch database $BRANCH_DB_NAME does not exist (may have been deleted already)"
