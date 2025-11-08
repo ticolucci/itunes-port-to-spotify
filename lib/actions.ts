@@ -19,11 +19,14 @@ export async function fetchSongs(options?: {
     const total = Number(countResult[0]?.value ?? 0);
 
     // Build and execute paginated query
-    const rows = options?.limit !== undefined && options?.offset !== undefined
-      ? await db.select().from(songsTable).orderBy(asc(songsTable.id)).limit(options.limit).offset(options.offset)
-      : options?.limit !== undefined
-      ? await db.select().from(songsTable).orderBy(asc(songsTable.id)).limit(options.limit)
-      : await db.select().from(songsTable).orderBy(asc(songsTable.id));
+    const baseQuery = db.select().from(songsTable).orderBy(asc(songsTable.id));
+    const rows = await (
+      options?.limit !== undefined
+        ? options?.offset !== undefined
+          ? baseQuery.limit(options.limit).offset(options.offset)
+          : baseQuery.limit(options.limit)
+        : baseQuery
+    );
 
     // Map database rows to Song objects
     const songs: Song[] = rows.map((row) => ({
