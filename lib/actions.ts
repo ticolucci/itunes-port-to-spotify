@@ -2,7 +2,7 @@
 
 import { getDatabase } from "@/lib/db";
 import { songs as songsTable } from "@/lib/schema";
-import { asc, sql } from "drizzle-orm";
+import { asc } from "drizzle-orm";
 import type { Song } from "@/lib/types";
 
 export async function fetchSongs(options?: {
