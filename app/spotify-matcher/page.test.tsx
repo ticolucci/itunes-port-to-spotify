@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 import SpotifyMatcherPage from './page'
 
 // Mock the Server Actions
@@ -8,20 +7,17 @@ vi.mock('@/lib/spotify-actions', () => ({
   getNextUnmatchedAlbum: vi.fn(),
   getSongsByAlbum: vi.fn(),
   searchSpotifyForSong: vi.fn(),
-  saveSongMatch: vi.fn(),
 }))
 
 import {
   getNextUnmatchedAlbum,
   getSongsByAlbum,
   searchSpotifyForSong,
-  saveSongMatch,
 } from '@/lib/spotify-actions'
 
 const mockGetNextUnmatchedAlbum = vi.mocked(getNextUnmatchedAlbum)
 const mockGetSongsByAlbum = vi.mocked(getSongsByAlbum)
 const mockSearchSpotifyForSong = vi.mocked(searchSpotifyForSong)
-const mockSaveSongMatch = vi.mocked(saveSongMatch)
 
 describe('SpotifyMatcherPage', () => {
   beforeEach(() => {
