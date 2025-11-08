@@ -95,29 +95,55 @@ jobs:
       - name: Create or update branch database
         env:
           TURSO_API_TOKEN: ${{ secrets.TURSO_API_TOKEN }}
+          TURSO_ORG_NAME: ${{ secrets.TURSO_ORG_NAME }}
         run: |
-          # Install Turso CLI
-          curl -sSfL https://get.tur.so/install.sh | bash
-          export PATH="$HOME/.turso/bin:$PATH"
-
           # Set branch database name based on PR number
           BRANCH_DB_NAME="itunes-spotify-pr-${{ github.event.pull_request.number }}"
           PRIMARY_DB_NAME="${{ secrets.TURSO_PRIMARY_DB_NAME }}"
+          API_BASE="https://api.turso.tech/v1/organizations/${TURSO_ORG_NAME}"
 
           echo "Branch database name: $BRANCH_DB_NAME"
 
           # Check if branch database exists
-          if turso db show "$BRANCH_DB_NAME" 2>/dev/null; then
-            echo "Branch database exists, updating schema point..."
-            turso db update "$BRANCH_DB_NAME" --schema-from "$PRIMARY_DB_NAME"
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Authorization: Bearer ${TURSO_API_TOKEN}" \
+            "${API_BASE}/databases/${BRANCH_DB_NAME}")
+
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "Branch database exists, using existing database..."
+            # Note: Turso API doesn't support updating schema origin, so we use existing DB as-is
           else
-            echo "Creating new branch database from $PRIMARY_DB_NAME..."
-            turso db create "$BRANCH_DB_NAME" --from-db "$PRIMARY_DB_NAME"
+            echo "Creating new branch database from ${PRIMARY_DB_NAME}..."
+            curl -X POST \
+              -H "Authorization: Bearer ${TURSO_API_TOKEN}" \
+              -H "Content-Type: application/json" \
+              -d "{\"name\": \"${BRANCH_DB_NAME}\", \"group\": \"default\", \"seed\": {\"type\": \"database\", \"name\": \"${PRIMARY_DB_NAME}\"}}" \
+              "${API_BASE}/databases"
+
+            # Wait for database to be ready
+            echo "Waiting for database to be ready..."
+            sleep 5
           fi
 
-          # Get database URL and create token
-          BRANCH_DB_URL=$(turso db show "$BRANCH_DB_NAME" --url)
-          BRANCH_DB_TOKEN=$(turso db tokens create "$BRANCH_DB_NAME")
+          # Get database details
+          DB_RESPONSE=$(curl -s \
+            -H "Authorization: Bearer ${TURSO_API_TOKEN}" \
+            "${API_BASE}/databases/${BRANCH_DB_NAME}")
+
+          BRANCH_DB_URL=$(echo "$DB_RESPONSE" | jq -r '.database.hostname')
+          BRANCH_DB_URL="libsql://${BRANCH_DB_URL}"
+
+          # Create auth token for the database
+          TOKEN_RESPONSE=$(curl -s -X POST \
+            -H "Authorization: Bearer ${TURSO_API_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d '{"expiration": "7d", "authorization": "full-access"}' \
+            "${API_BASE}/databases/${BRANCH_DB_NAME}/auth/tokens")
+
+          BRANCH_DB_TOKEN=$(echo "$TOKEN_RESPONSE" | jq -r '.jwt')
+
+          echo "Database URL: $BRANCH_DB_URL"
+          echo "Branch database ready!"
 
           # Save to GitHub environment
           echo "BRANCH_DB_URL=$BRANCH_DB_URL" >> $GITHUB_ENV

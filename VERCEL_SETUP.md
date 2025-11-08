@@ -122,19 +122,22 @@ Add `VERCEL_ORG_ID` and `VERCEL_PROJECT_ID` to GitHub Secrets.
 
 | Secret Name | Where to Get It |
 |-------------|----------------|
-| `TURSO_API_TOKEN` | Run: `turso auth token` (must be logged in via `turso auth login`) |
+| `TURSO_API_TOKEN` | Turso Dashboard → Settings → API Tokens → Create Token |
+| `TURSO_ORG_NAME` | Your Turso organization name (usually your username or team slug) |
 | `TURSO_PRIMARY_DB_NAME` | Your production database name (e.g., `itunes-spotify-prod`) |
 
 **To get your Turso API Token:**
-```bash
-# Login to Turso if not already
-turso auth login
+1. Go to https://turso.tech/app (login if needed)
+2. Navigate to **Settings** → **API Tokens**
+3. Click **Create Token**
+4. Give it a name like "GitHub Actions"
+5. Copy the token and add it to GitHub Secrets as `TURSO_API_TOKEN`
 
-# Generate API token for GitHub Actions
-turso auth token
-```
-
-Copy the token and add it to GitHub Secrets as `TURSO_API_TOKEN`.
+**To get your Organization Name:**
+1. Go to https://turso.tech/app
+2. Look at the URL or the top-left menu - your org name is displayed there
+3. Or run: `turso org show` (if using CLI)
+4. Add it to GitHub Secrets as `TURSO_ORG_NAME`
 
 **Existing GitHub Secrets** (should already be set):
 - `TURSO_DATABASE_URL` - Production database URL
@@ -142,15 +145,15 @@ Copy the token and add it to GitHub Secrets as `TURSO_API_TOKEN`.
 
 ### Step 7: Enable Database Branching for Preview Deployments
 
-This project automatically creates isolated database branches for each PR preview:
+This project automatically creates isolated database branches for each PR preview using the Turso Platform API:
 
 **How it works:**
-1. When you open a PR, GitHub Actions creates a branch database (e.g., `itunes-spotify-pr-42`)
-2. The branch database is a copy of your production database (schema + data)
+1. When you open a PR, GitHub Actions uses Turso's API to create a branch database (e.g., `itunes-spotify-pr-42`)
+2. The branch database is seeded from your production database (schema + data copy)
 3. Migrations run on the branch database to test schema changes safely
-4. GitHub Actions deploys to Vercel with branch database credentials (injected at deploy time)
+4. GitHub Actions generates temporary credentials and deploys to Vercel
 5. The preview deployment uses the isolated branch database
-6. When the PR is closed, the branch database is automatically deleted
+6. When the PR is closed, the branch database is automatically deleted via API
 
 **Benefits:**
 - ✅ Isolated testing - changes don't affect production data
@@ -161,10 +164,11 @@ This project automatically creates isolated database branches for each PR previe
 
 **How credentials work:**
 - Production deployments use `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` from Vercel environment variables
-- Preview deployments get branch database credentials injected by GitHub Actions at deploy time
-- You don't need to configure preview database credentials in Vercel - it's all automated!
+- Preview deployments: GitHub Actions creates temporary credentials via Turso API (7-day expiration)
+- Credentials are injected into Vercel deployment at runtime - no manual configuration needed
+- All operations use the Turso Platform API (no CLI installation required)
 
-**No additional setup required!** As long as you've added `TURSO_API_TOKEN` and `TURSO_PRIMARY_DB_NAME` to GitHub Secrets, database branching will work automatically.
+**No additional setup required!** As long as you've added `TURSO_API_TOKEN`, `TURSO_ORG_NAME`, and `TURSO_PRIMARY_DB_NAME` to GitHub Secrets, database branching will work automatically.
 
 ### Step 8: Test the Deployment Pipeline
 
@@ -365,6 +369,7 @@ vercel logs <deployment-url>
 
 ### Turso Database Commands
 
+**Via CLI:**
 ```bash
 # List all databases (including branch databases)
 turso db list
@@ -375,12 +380,6 @@ turso db show <database-name>
 # List branch databases for PRs
 turso db list | grep "itunes-spotify-pr-"
 
-# Manually create a branch database
-turso db create <branch-name> --from-db <primary-db-name>
-
-# Manually delete a branch database
-turso db destroy <branch-name> --yes
-
 # Connect to database shell
 turso db shell <database-name>
 
@@ -388,20 +387,39 @@ turso db shell <database-name>
 turso db shell <database-name> ".schema"
 ```
 
+**Via API:**
+```bash
+# List all databases
+curl -H "Authorization: Bearer $TURSO_API_TOKEN" \
+  "https://api.turso.tech/v1/organizations/$TURSO_ORG_NAME/databases"
+
+# Get database details
+curl -H "Authorization: Bearer $TURSO_API_TOKEN" \
+  "https://api.turso.tech/v1/organizations/$TURSO_ORG_NAME/databases/DB_NAME"
+
+# Delete a database
+curl -X DELETE \
+  -H "Authorization: Bearer $TURSO_API_TOKEN" \
+  "https://api.turso.tech/v1/organizations/$TURSO_ORG_NAME/databases/DB_NAME"
+```
+
 ### Managing Preview Databases
 
-Preview databases are automatically managed by GitHub Actions, but you can manually inspect or clean them:
+Preview databases are automatically managed by GitHub Actions using the Turso Platform API. You can manually inspect or clean them via CLI or API:
 
 ```bash
-# List all PR branch databases
+# Via CLI - List all PR branch databases
 turso db list | grep "itunes-spotify-pr-"
 
-# Check a specific PR's database
-turso db show itunes-spotify-pr-42
+# Via API - List all databases and filter in code
+curl -H "Authorization: Bearer $TURSO_API_TOKEN" \
+  "https://api.turso.tech/v1/organizations/$TURSO_ORG_NAME/databases" \
+  | jq '.databases[] | select(.name | startswith("itunes-spotify-pr-"))'
 
-# Manually clean up old PR databases (if needed)
-# GitHub Actions should do this automatically, but if something goes wrong:
-turso db destroy itunes-spotify-pr-42 --yes
+# Via API - Manually delete a specific PR database
+curl -X DELETE \
+  -H "Authorization: Bearer $TURSO_API_TOKEN" \
+  "https://api.turso.tech/v1/organizations/$TURSO_ORG_NAME/databases/itunes-spotify-pr-42"
 ```
 
 ---
