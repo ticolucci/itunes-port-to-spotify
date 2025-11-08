@@ -13,9 +13,7 @@ export async function fetchSongs(options?: {
     const db = getDatabase();
 
     // Get total count efficiently without fetching all rows
-    // @ts-expect-error - Drizzle's select() accepts custom fields despite TypeScript thinking otherwise
     const countResult = await db.select({ value: count() }).from(songsTable);
-    // @ts-expect-error - TypeScript doesn't infer the custom select shape correctly
     const total = Number(countResult[0]?.value ?? 0);
 
     // Build and execute paginated query
