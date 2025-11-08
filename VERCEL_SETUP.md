@@ -50,8 +50,11 @@ Before clicking "Deploy", add these environment variables:
 1. Scroll to "Environment Variables" section
 2. Click "Add" for each variable
 3. Enter the name and value
-4. Select all environments (Production, Preview, Development)
-5. Click "Add"
+4. For `SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET`: Select **all environments** (Production, Preview, Development)
+5. For `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN`: Select **Production only**
+   - Preview deployments get database credentials dynamically from GitHub Actions (branch databases)
+   - These credentials are injected at deployment time, not stored in Vercel
+6. Click "Add"
 
 ### Step 5: Disable Automatic Deployments (Production Only)
 
@@ -142,16 +145,23 @@ This project automatically creates isolated database branches for each PR previe
 
 **How it works:**
 1. When you open a PR, GitHub Actions creates a branch database (e.g., `itunes-spotify-pr-42`)
-2. The branch database is a copy of your production database
-3. Migrations run on the branch database
-4. The preview deployment uses the branch database
-5. When the PR is closed, the branch database is automatically deleted
+2. The branch database is a copy of your production database (schema + data)
+3. Migrations run on the branch database to test schema changes safely
+4. GitHub Actions deploys to Vercel with branch database credentials (injected at deploy time)
+5. The preview deployment uses the isolated branch database
+6. When the PR is closed, the branch database is automatically deleted
 
 **Benefits:**
 - ✅ Isolated testing - changes don't affect production data
-- ✅ Test migrations safely before merging
-- ✅ Each PR gets its own database sandbox
+- ✅ Test migrations safely on production data copy before merging to main
+- ✅ Each PR gets its own database sandbox with real data
+- ✅ Database credentials injected dynamically - no manual Vercel env var management
 - ✅ Automatic cleanup when PR closes
+
+**How credentials work:**
+- Production deployments use `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` from Vercel environment variables
+- Preview deployments get branch database credentials injected by GitHub Actions at deploy time
+- You don't need to configure preview database credentials in Vercel - it's all automated!
 
 **No additional setup required!** As long as you've added `TURSO_API_TOKEN` and `TURSO_PRIMARY_DB_NAME` to GitHub Secrets, database branching will work automatically.
 
@@ -201,17 +211,18 @@ The CLI will ask you questions:
 ### Add Environment Variables via CLI
 
 ```bash
-# Add each variable for production
+# Add Spotify credentials for all environments
 vercel env add SPOTIFY_CLIENT_ID production
 vercel env add SPOTIFY_CLIENT_SECRET production
+vercel env add SPOTIFY_CLIENT_ID preview
+vercel env add SPOTIFY_CLIENT_SECRET preview
+
+# Add Turso credentials for production only
 vercel env add TURSO_DATABASE_URL production
 vercel env add TURSO_AUTH_TOKEN production
 
-# Add for preview/development environments
-vercel env add SPOTIFY_CLIENT_ID preview
-vercel env add SPOTIFY_CLIENT_SECRET preview
-vercel env add TURSO_DATABASE_URL preview
-vercel env add TURSO_AUTH_TOKEN preview
+# Note: Preview deployments don't need TURSO credentials in Vercel
+# They're injected dynamically by GitHub Actions from branch databases
 ```
 
 ---
