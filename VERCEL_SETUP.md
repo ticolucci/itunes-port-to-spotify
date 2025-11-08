@@ -56,19 +56,20 @@ Before clicking "Deploy", add these environment variables:
    - These credentials are injected at deployment time, not stored in Vercel
 6. Click "Add"
 
-### Step 5: Disable Automatic Deployments (Production Only)
+### Step 5: Disable Automatic Deployments (Optional)
 
-**IMPORTANT**: To ensure migrations run before deployments, disable automatic deployments for production:
+**NOTE**: The `vercel.json` file already includes `"ignoreCommand": "exit 0"` which skips all automatic builds. GitHub Actions handles all deployments (production and preview).
 
-1. After clicking "Deploy" for the first time, wait for initial deployment
-2. Go to your project settings: **Settings** → **Git**
-3. Under "Production Branch", find **"Ignored Build Step"** section
-4. Set it to: **Custom**
-5. Enter this command: `exit 1;`
+However, if you want to double-check or manually configure it in Vercel dashboard:
 
-This prevents Vercel from auto-deploying production when you push to `main`. Instead, GitHub Actions will handle deployment after migrations succeed.
+1. Go to your project settings: **Settings** → **Git**
+2. Under "Production Branch" and "Preview Branches", find **"Ignored Build Step"** section
+3. Set it to: **Custom**
+4. Enter this command: `exit 0`
 
-**Note**: Preview deployments for pull requests will still work automatically.
+This prevents Vercel from auto-deploying when you push to any branch. Instead, GitHub Actions handles all deployments after running migrations.
+
+**Why this matters**: GitHub Actions runs migrations before deploying, ensuring your database is always in sync with your code.
 
 ### Step 6: Configure GitHub Actions for Deployment
 
