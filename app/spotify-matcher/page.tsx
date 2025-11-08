@@ -399,6 +399,7 @@ export default function SpotifyMatcherPage() {
                 ) : songWithMatch.spotifyMatch ? (
                   <>
                     {albumImage && (
+                      // eslint-disable-next-line @next/next/no-img-element -- Spotify CDN images are already optimized
                       <img
                         src={albumImage}
                         alt={songWithMatch.spotifyMatch.album.name}
