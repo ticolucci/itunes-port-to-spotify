@@ -225,7 +225,7 @@ export async function searchSpotifyForSong(
 export async function saveSongMatch(
   songId: number,
   spotifyId: string
-): Promise<ActionResult<{}>> {
+): Promise<{ success: true } | { success: false; error: string }> {
   try {
     const db = getDatabase()
 
@@ -264,7 +264,7 @@ export async function saveSongMatch(
  */
 export async function clearSongMatch(
   songId: number
-): Promise<ActionResult<{}>> {
+): Promise<{ success: true } | { success: false; error: string }> {
   try {
     const db = getDatabase()
 
