@@ -19,6 +19,9 @@ jobs:
         env:
           TURSO_API_TOKEN: ${{ secrets.TURSO_API_TOKEN }}
         run: |
+          # Add Turso to PATH for this step
+          export PATH="$HOME/.turso/bin:$PATH"
+
           BRANCH_DB_NAME="itunes-spotify-pr-${{ github.event.pull_request.number }}"
 
           echo "Attempting to delete branch database: $BRANCH_DB_NAME"
