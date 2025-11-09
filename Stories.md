@@ -4,22 +4,7 @@ This file collects short, actionable user stories and technical tasks for the pr
 
 ---
 
-## 1) Improve Spotify query escaping/quoting (What's next)
-- Description: Ensure `SpotifyClient#search` escapes and quotes values so special characters (quotes, parentheses, punctuation) produce predictable Spotify queries.
-- Acceptance criteria:
-  - Strings containing quotes or special characters are safely quoted or escaped in the generated `q` parameter.
-  - Existing specs extended to cover special-character inputs and pass.
-  - No change in external behavior for simple inputs.
-- Priority: High
-- Size: Small
 
-## 4) Spotify search improvements: more types & options
-- Description: Extend `SpotifyClient#search` to accept options (type, market, limit) and allow searching for album/artist results in addition to tracks.
-- Acceptance criteria:
-  - API supports type override (e.g., `type: 'artist,album'`) and passes tests.
-  - Interface remains backward compatible.
-- Priority: Medium
-- Size: Medium
 
 ## 5) CLI to review search results and "like" tracks (user idea)
 - Description: Interactive terminal UI to step through candidate Spotify results for a SongRecord, and mark chosen tracks to be added to a "liked" list or exported to Spotify. Should support keyboard-driven selection and batch actions.
