@@ -69,7 +69,7 @@ describe('Spotify Actions', () => {
         expect(result.song).toMatchObject({
           title: 'Song 2',
           artist: 'Artist 2',
-          spotify_id: undefined,
+          spotify_id: null,
         })
       }
     })
