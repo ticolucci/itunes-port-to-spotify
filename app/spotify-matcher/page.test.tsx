@@ -95,11 +95,12 @@ describe('SpotifyMatcherPage', () => {
 
     // Check that match button is shown for unmatched song
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Match/i })).toBeInTheDocument()
+      const matchButtons = screen.getAllByRole('button', { name: /Match/i })
+      expect(matchButtons.length).toBeGreaterThan(0)
     })
 
-    // Check that matched status is shown for matched song
-    expect(screen.getByText('Matched')).toBeInTheDocument()
+    // Check that Undo button is shown for matched song
+    expect(screen.getByRole('button', { name: /Undo/i })).toBeInTheDocument()
   })
 
   it('handles songs with null or undefined titles without crashing', async () => {

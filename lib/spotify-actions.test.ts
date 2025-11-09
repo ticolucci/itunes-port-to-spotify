@@ -3,12 +3,14 @@ import Database from 'better-sqlite3'
 import { drizzle } from 'drizzle-orm/better-sqlite3'
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator'
 import path from 'path'
+import * as schema from './schema'
 
 let testDb: Database.Database
+let testDbDrizzle: ReturnType<typeof drizzle>
 
 // Mock the database module before importing anything
 vi.mock('./db', () => ({
-  getDatabase: () => testDb,
+  getDatabase: () => testDbDrizzle,
   closeDatabase: vi.fn(),
 }))
 
@@ -27,8 +29,8 @@ import {
 describe('Spotify Actions', () => {
   beforeAll(() => {
     testDb = new Database(':memory:')
-    const db = drizzle(testDb)
-    migrate(db, {
+    testDbDrizzle = drizzle(testDb, { schema })
+    migrate(testDbDrizzle, {
       migrationsFolder: path.join(process.cwd(), 'drizzle/migrations'),
     })
   })
@@ -67,7 +69,7 @@ describe('Spotify Actions', () => {
         expect(result.song).toMatchObject({
           title: 'Song 2',
           artist: 'Artist 2',
-          spotify_id: null,
+          spotify_id: undefined,
         })
       }
     })
