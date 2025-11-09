@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import SongsPage from './page'
-import type { Song } from '@/lib/types'
+import type { Song } from '@/lib/schema'
 
 // Mock the Server Action
 vi.mock('@/lib/actions', () => ({
