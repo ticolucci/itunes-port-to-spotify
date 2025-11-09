@@ -2,9 +2,9 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: ['**']  # Run on all branches
+    branches: [main]  # Only run on push to main (for deployment)
   pull_request:
-    branches: ['**']
+    branches: ['**']  # Run on all pull requests
 
 jobs:
   # Job 1: Lint (runs on all branches)
