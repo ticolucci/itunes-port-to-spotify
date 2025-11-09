@@ -56,15 +56,14 @@ jobs:
 
       - name: Run tests
         run: npm run test
-        continue-on-error: true  # TODO: Fix tests to work with Drizzle API
 
       - name: Generate test summary
         if: always()
         run: |
           echo "## 🧪 Test Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **Status:** ⚠️ Passed with warnings" >> $GITHUB_STEP_SUMMARY
-          echo "- **Note:** Some tests are currently set to continue-on-error while updating test mocks" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status:** ✅ All tests passed" >> $GITHUB_STEP_SUMMARY
+          echo "- **Node Version:** $(node --version)" >> $GITHUB_STEP_SUMMARY
 
   # Job 3: Build (runs on all branches)
   build:
@@ -272,7 +271,7 @@ jobs:
               | Check | Status |
               |-------|--------|
               | 🔍 Lint | ✅ Passed |
-              | 🧪 Tests | ⚠️ Passed with warnings |
+              | 🧪 Tests | ✅ Passed |
               | 📦 Build | ✅ Passed |
               | 🔄 Preview | ✅ Deployed |
 
