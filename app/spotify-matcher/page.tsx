@@ -13,6 +13,7 @@ import {
   clearSongMatch,
 } from '@/lib/spotify-actions'
 import { ReviewCard } from './ReviewCard'
+import { AISuggestion } from './AISuggestion'
 
 interface SongWithMatch {
   dbSong: Song
@@ -392,7 +393,7 @@ export default function SpotifyMatcherPage() {
               </div>
 
               {/* Spotify Match */}
-              <div className="flex items-start gap-3">
+              <div className="flex items-start gap-3 min-w-0 flex-1">
                 {songWithMatch.searching ? (
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -430,13 +431,23 @@ export default function SpotifyMatcherPage() {
                     </div>
                   </>
                 ) : !songWithMatch.dbSong.title || !songWithMatch.dbSong.artist || !songWithMatch.dbSong.album ? (
-                  <p className="text-sm text-amber-600 italic">
-                    Incomplete metadata - skipped
-                  </p>
+                  <div className="w-full">
+                    <p className="text-sm text-amber-600 italic mb-3">
+                      Incomplete metadata - skipped
+                    </p>
+                    <AISuggestion
+                      song={songWithMatch.dbSong}
+                    />
+                  </div>
                 ) : (
-                  <p className="text-sm text-muted-foreground">
-                    No match found
-                  </p>
+                  <div className="w-full">
+                    <p className="text-sm text-muted-foreground mb-3">
+                      No match found
+                    </p>
+                    <AISuggestion
+                      song={songWithMatch.dbSong}
+                    />
+                  </div>
                 )}
               </div>
 

@@ -19,12 +19,21 @@ vi.mock('./spotify', () => ({
   searchSpotifyTracks: vi.fn(),
 }))
 
+// Mock the AI metadata fixer
+vi.mock('./ai-metadata-fixer', () => ({
+  fixMetadataWithAI: vi.fn(),
+}))
+
 // Import after mocking
 import {
   getNextUnmatchedSong,
   getSongsByArtist,
   saveSongMatch,
+  getAISuggestionForSong,
+  applyAIFixToSong,
 } from './spotify-actions'
+import { fixMetadataWithAI } from './ai-metadata-fixer'
+import type { MetadataFix } from './ai-metadata-fixer'
 
 describe('Spotify Actions', () => {
   beforeAll(() => {
@@ -161,6 +170,231 @@ describe('Spotify Actions', () => {
       if (!result.success) {
         expect(result.error).toContain('not found')
       }
+    })
+  })
+
+  describe('getAISuggestionForSong', () => {
+    it('returns AI suggestion for a song', async () => {
+      // Insert test song
+      testDb
+        .prepare(
+          `INSERT INTO songs (title, artist, album, album_artist, filename)
+           VALUES (?, ?, ?, ?, ?)`
+        )
+        .run('Hey Jude  ', 'The Beatles ', 'Past Masters', 'The Beatles', 'test.mp3')
+
+      const songId = testDb
+        .prepare('SELECT id FROM songs WHERE title = ?')
+        .get('Hey Jude  ') as { id: number }
+
+      const mockSuggestion: MetadataFix = {
+        suggestedArtist: 'The Beatles',
+        suggestedTrack: 'Hey Jude',
+        suggestedAlbum: 'Past Masters',
+        confidence: 'high',
+        reasoning: 'Removed extra whitespace',
+        alternativeSearchQueries: ['The Beatles Hey Jude', 'Hey Jude Beatles'],
+      }
+
+      vi.mocked(fixMetadataWithAI).mockResolvedValue(mockSuggestion)
+
+      const result = await getAISuggestionForSong(songId.id)
+
+      expect(result.success).toBe(true)
+      if (result.success) {
+        expect(result.suggestion).toEqual(mockSuggestion)
+        expect(result.song).toMatchObject({
+          title: 'Hey Jude  ',
+          artist: 'The Beatles ',
+        })
+      }
+
+      expect(fixMetadataWithAI).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: songId.id,
+          title: 'Hey Jude  ',
+          artist: 'The Beatles ',
+        })
+      )
+    })
+
+    it('returns error when AI service fails', async () => {
+      testDb
+        .prepare(
+          `INSERT INTO songs (title, artist, album, album_artist, filename)
+           VALUES (?, ?, ?, ?, ?)`
+        )
+        .run('Song', 'Artist', 'Album', 'Artist', 'test.mp3')
+
+      const songId = testDb
+        .prepare('SELECT id FROM songs WHERE title = ?')
+        .get('Song') as { id: number }
+
+      vi.mocked(fixMetadataWithAI).mockResolvedValue(null)
+
+      const result = await getAISuggestionForSong(songId.id)
+
+      expect(result.success).toBe(false)
+      if (!result.success) {
+        expect(result.error).toContain('AI service is unavailable')
+      }
+    })
+
+    it('returns error for non-existent song', async () => {
+      const result = await getAISuggestionForSong(99999)
+
+      expect(result.success).toBe(false)
+      if (!result.success) {
+        expect(result.error).toContain('not found')
+      }
+    })
+
+    it('handles AI throwing error', async () => {
+      testDb
+        .prepare(
+          `INSERT INTO songs (title, artist, album, album_artist, filename)
+           VALUES (?, ?, ?, ?, ?)`
+        )
+        .run('Song', 'Artist', 'Album', 'Artist', 'test.mp3')
+
+      const songId = testDb
+        .prepare('SELECT id FROM songs WHERE title = ?')
+        .get('Song') as { id: number }
+
+      vi.mocked(fixMetadataWithAI).mockRejectedValue(new Error('API Error'))
+
+      const result = await getAISuggestionForSong(songId.id)
+
+      expect(result.success).toBe(false)
+      if (!result.success) {
+        expect(result.error).toBe('API Error')
+      }
+    })
+  })
+
+  describe('applyAIFixToSong', () => {
+    it('applies AI fix to song metadata', async () => {
+      testDb
+        .prepare(
+          `INSERT INTO songs (title, artist, album, album_artist, filename)
+           VALUES (?, ?, ?, ?, ?)`
+        )
+        .run('Hey Jude  ', 'The Beatles ', '  Past Masters ', 'The Beatles', 'test.mp3')
+
+      const songId = testDb
+        .prepare('SELECT id FROM songs WHERE title = ?')
+        .get('Hey Jude  ') as { id: number }
+
+      const fix: MetadataFix = {
+        suggestedArtist: 'The Beatles',
+        suggestedTrack: 'Hey Jude',
+        suggestedAlbum: 'Past Masters',
+        confidence: 'high',
+        reasoning: 'Removed extra whitespace',
+        alternativeSearchQueries: [],
+      }
+
+      const result = await applyAIFixToSong(songId.id, fix)
+
+      expect(result.success).toBe(true)
+
+      // Verify changes were applied
+      const updated = testDb
+        .prepare('SELECT title, artist, album FROM songs WHERE id = ?')
+        .get(songId.id) as { title: string; artist: string; album: string }
+
+      expect(updated).toEqual({
+        title: 'Hey Jude',
+        artist: 'The Beatles',
+        album: 'Past Masters',
+      })
+    })
+
+    it('preserves original album if no suggestion provided', async () => {
+      testDb
+        .prepare(
+          `INSERT INTO songs (title, artist, album, album_artist, filename)
+           VALUES (?, ?, ?, ?, ?)`
+        )
+        .run('Track', 'Artist ', 'Original Album', 'Artist', 'test.mp3')
+
+      const songId = testDb
+        .prepare('SELECT id FROM songs WHERE title = ?')
+        .get('Track') as { id: number }
+
+      const fix: MetadataFix = {
+        suggestedArtist: 'Artist',
+        suggestedTrack: 'Track',
+        // No suggestedAlbum
+        confidence: 'high',
+        reasoning: 'Minor fix',
+        alternativeSearchQueries: [],
+      }
+
+      const result = await applyAIFixToSong(songId.id, fix)
+
+      expect(result.success).toBe(true)
+
+      const updated = testDb
+        .prepare('SELECT album FROM songs WHERE id = ?')
+        .get(songId.id) as { album: string }
+
+      expect(updated.album).toBe('Original Album')
+    })
+
+    it('returns error for non-existent song', async () => {
+      const fix: MetadataFix = {
+        suggestedArtist: 'Artist',
+        suggestedTrack: 'Track',
+        confidence: 'high',
+        reasoning: 'Fix',
+        alternativeSearchQueries: [],
+      }
+
+      const result = await applyAIFixToSong(99999, fix)
+
+      expect(result.success).toBe(false)
+      if (!result.success) {
+        expect(result.error).toContain('not found')
+      }
+    })
+
+    it('handles featured artist extraction correctly', async () => {
+      testDb
+        .prepare(
+          `INSERT INTO songs (title, artist, album, album_artist, filename)
+           VALUES (?, ?, ?, ?, ?)`
+        )
+        .run(
+          'Get Lucky',
+          'Daft Punk feat. Pharrell',
+          'Random Access Memories',
+          'Daft Punk',
+          'test.mp3'
+        )
+
+      const songId = testDb
+        .prepare('SELECT id FROM songs WHERE title = ?')
+        .get('Get Lucky') as { id: number }
+
+      const fix: MetadataFix = {
+        suggestedArtist: 'Daft Punk',
+        suggestedTrack: 'Get Lucky',
+        suggestedAlbum: 'Random Access Memories',
+        confidence: 'medium',
+        reasoning: 'Extracted main artist',
+        alternativeSearchQueries: ['Daft Punk Get Lucky', 'Get Lucky Pharrell'],
+      }
+
+      const result = await applyAIFixToSong(songId.id, fix)
+
+      expect(result.success).toBe(true)
+
+      const updated = testDb
+        .prepare('SELECT artist FROM songs WHERE id = ?')
+        .get(songId.id) as { artist: string }
+
+      expect(updated.artist).toBe('Daft Punk')
     })
   })
 })

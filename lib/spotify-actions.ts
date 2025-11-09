@@ -4,6 +4,7 @@ import { getDatabase } from './db'
 import { songs as songsTable, type Song } from './schema'
 import { eq, and, isNull } from 'drizzle-orm'
 import { searchSpotifyTracks, type SpotifyTrack } from './spotify'
+import { fixMetadataWithAI, type MetadataFix } from './ai-metadata-fixer'
 
 export type ActionResult<T> =
   | { success: true } & T
@@ -302,6 +303,107 @@ export async function clearSongMatch(
     return { success: true }
   } catch (error) {
     console.error('Error clearing song match:', error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    }
+  }
+}
+
+/**
+ * Get AI-powered metadata fix suggestions for a song
+ */
+export async function getAISuggestionForSong(
+  songId: number
+): Promise<ActionResult<{ suggestion: MetadataFix; song: Song }>> {
+  try {
+    const db = getDatabase()
+
+    // Fetch the song
+    const songs = await db
+      .select()
+      .from(songsTable)
+      .where(eq(songsTable.id, songId))
+      .limit(1)
+
+    if (songs.length === 0) {
+      return {
+        success: false,
+        error: `Song with ID ${songId} not found`,
+      }
+    }
+
+    const song: Song = {
+      id: songs[0].id,
+      title: songs[0].title,
+      artist: songs[0].artist,
+      album: songs[0].album,
+      album_artist: songs[0].album_artist,
+      filename: songs[0].filename,
+      spotify_id: songs[0].spotify_id,
+    }
+
+    // Get AI suggestion
+    const suggestion = await fixMetadataWithAI(song)
+
+    if (!suggestion) {
+      return {
+        success: false,
+        error: 'AI service is unavailable or returned invalid response',
+      }
+    }
+
+    return {
+      success: true,
+      suggestion,
+      song,
+    }
+  } catch (error) {
+    console.error('Error getting AI suggestion:', error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    }
+  }
+}
+
+/**
+ * Apply AI-suggested metadata fixes to a song in the database
+ */
+export async function applyAIFixToSong(
+  songId: number,
+  fix: MetadataFix
+): Promise<{ success: true } | { success: false; error: string }> {
+  try {
+    const db = getDatabase()
+
+    // Check if song exists
+    const existingSongs = await db
+      .select()
+      .from(songsTable)
+      .where(eq(songsTable.id, songId))
+      .limit(1)
+
+    if (existingSongs.length === 0) {
+      return {
+        success: false,
+        error: `Song with ID ${songId} not found`,
+      }
+    }
+
+    // Apply the fixes
+    await db
+      .update(songsTable)
+      .set({
+        artist: fix.suggestedArtist,
+        title: fix.suggestedTrack,
+        album: fix.suggestedAlbum || existingSongs[0].album,
+      })
+      .where(eq(songsTable.id, songId))
+
+    return { success: true }
+  } catch (error) {
+    console.error('Error applying AI fix:', error)
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',
