@@ -31,10 +31,16 @@ export async function searchSpotifyTracks(
   }
 
   // Build tagged query (e.g., "artist:Beatles album:Abbey Road")
+  // Filter out null/empty values and trim whitespace
   const queryParts: string[] = []
-  if (params.artist) queryParts.push(`artist:${params.artist}`)
-  if (params.album) queryParts.push(`album:${params.album}`)
-  if (params.track) queryParts.push(`track:${params.track}`)
+  if (params.artist?.trim()) queryParts.push(`artist:${params.artist.trim()}`)
+  if (params.album?.trim()) queryParts.push(`album:${params.album.trim()}`)
+  if (params.track?.trim()) queryParts.push(`track:${params.track.trim()}`)
+
+  // Require at least one search parameter
+  if (queryParts.length === 0) {
+    throw new Error('At least one search parameter (artist, album, or track) is required')
+  }
 
   const query = queryParts.join(' ')
 

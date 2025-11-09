@@ -157,11 +157,11 @@ describe('fetchSongs Server Action', () => {
       expect(result.success).toBe(true)
       if (result.success) {
         const song = result.songs[0]
-        expect(song.title).toBe('')
-        expect(song.artist).toBe('')
-        expect(song.album).toBe('')
-        expect(song.album_artist).toBe('')
-        expect(song.filename).toBe('')
+        expect(song.title).toBe(null)
+        expect(song.artist).toBe(null)
+        expect(song.album).toBe(null)
+        expect(song.album_artist).toBe(null)
+        expect(song.filename).toBe(null)
       }
     })
   })

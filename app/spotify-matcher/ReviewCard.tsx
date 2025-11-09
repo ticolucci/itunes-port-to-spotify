@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button'
 import { Loader2, Check, X, Music } from 'lucide-react'
-import type { Song } from '@/lib/types'
+import type { Song } from '@/lib/schema'
 import type { SpotifyTrack } from '@/lib/spotify'
 
 interface SongWithMatch {
@@ -51,12 +51,12 @@ export function ReviewCard({
               <Music className="h-10 w-10 text-muted-foreground" />
             </div>
             <div>
-              <p className="font-bold text-lg">{currentReview.dbSong.title}</p>
+              <p className="font-bold text-lg">{currentReview.dbSong.title || <span className="italic text-muted-foreground">(No Title)</span>}</p>
               <p className="text-muted-foreground">
-                {currentReview.dbSong.artist}
+                {currentReview.dbSong.artist || <span className="italic">(No Artist)</span>}
               </p>
               <p className="text-sm text-muted-foreground">
-                {currentReview.dbSong.album}
+                {currentReview.dbSong.album || <span className="italic">(No Album)</span>}
               </p>
             </div>
           </div>

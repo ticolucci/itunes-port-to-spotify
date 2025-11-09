@@ -1,9 +1,8 @@
 'use server'
 
 import { getDatabase } from './db'
-import { songs as songsTable } from './schema'
+import { songs as songsTable, type Song } from './schema'
 import { eq, and, isNull } from 'drizzle-orm'
-import type { Song } from './types'
 import { searchSpotifyTracks, type SpotifyTrack } from './spotify'
 
 export type ActionResult<T> =
@@ -36,12 +35,12 @@ export async function getNextUnmatchedSong(): Promise<
 
     const song: Song = {
       id: row.id,
-      title: row.title || '',
-      artist: row.artist || '',
-      album: row.album || '',
-      album_artist: row.album_artist || '',
-      filename: row.filename || '',
-      spotify_id: row.spotify_id || undefined,
+      title: row.title,
+      artist: row.artist,
+      album: row.album,
+      album_artist: row.album_artist,
+      filename: row.filename,
+      spotify_id: row.spotify_id,
     }
 
     return {
@@ -61,7 +60,7 @@ export async function getNextUnmatchedSong(): Promise<
  * Get all songs by a specific artist, sorted by album
  */
 export async function getSongsByArtist(
-  artist: string
+  artist: string | null
 ): Promise<ActionResult<{ songs: Song[] }>> {
   try {
     const db = getDatabase()
@@ -69,17 +68,17 @@ export async function getSongsByArtist(
     const rows = await db
       .select()
       .from(songsTable)
-      .where(eq(songsTable.artist, artist))
+      .where(artist ? eq(songsTable.artist, artist) : isNull(songsTable.artist))
       .orderBy(songsTable.album, songsTable.title)
 
     const songs: Song[] = rows.map((row) => ({
       id: row.id,
-      title: row.title || '',
-      artist: row.artist || '',
-      album: row.album || '',
-      album_artist: row.album_artist || '',
-      filename: row.filename || '',
-      spotify_id: row.spotify_id || undefined,
+      title: row.title,
+      artist: row.artist,
+      album: row.album,
+      album_artist: row.album_artist,
+      filename: row.filename,
+      spotify_id: row.spotify_id,
     }))
 
     return {
@@ -99,11 +98,14 @@ export async function getSongsByArtist(
  * Search Spotify for tracks by artist and album
  */
 export async function searchSpotifyByArtistAlbum(
-  artist: string,
-  album: string
+  artist: string | null,
+  album: string | null
 ): Promise<ActionResult<{ tracks: SpotifyTrack[] }>> {
   try {
-    const tracks = await searchSpotifyTracks({ artist, album })
+    const tracks = await searchSpotifyTracks({
+      artist: artist || undefined,
+      album: album || undefined
+    })
 
     return {
       success: true,
@@ -122,8 +124,8 @@ export async function searchSpotifyByArtistAlbum(
  * Get all songs for a specific artist and album
  */
 export async function getSongsByAlbum(
-  artist: string,
-  album: string
+  artist: string | null,
+  album: string | null
 ): Promise<ActionResult<{ songs: Song[] }>> {
   try {
     const db = getDatabase()
@@ -131,17 +133,22 @@ export async function getSongsByAlbum(
     const rows = await db
       .select()
       .from(songsTable)
-      .where(and(eq(songsTable.artist, artist), eq(songsTable.album, album)))
+      .where(
+        and(
+          artist ? eq(songsTable.artist, artist) : isNull(songsTable.artist),
+          album ? eq(songsTable.album, album) : isNull(songsTable.album)
+        )
+      )
       .orderBy(songsTable.title)
 
     const songs: Song[] = rows.map((row) => ({
       id: row.id,
-      title: row.title || '',
-      artist: row.artist || '',
-      album: row.album || '',
-      album_artist: row.album_artist || '',
-      filename: row.filename || '',
-      spotify_id: row.spotify_id || undefined,
+      title: row.title,
+      artist: row.artist,
+      album: row.album,
+      album_artist: row.album_artist,
+      filename: row.filename,
+      spotify_id: row.spotify_id,
     }))
 
     return {
@@ -161,7 +168,7 @@ export async function getSongsByAlbum(
  * Get the next unmatched album (artist + album of first unmatched song)
  */
 export async function getNextUnmatchedAlbum(): Promise<
-  ActionResult<{ artist: string; album: string }>
+  ActionResult<{ artist: string | null; album: string | null }>
 > {
   try {
     const db = getDatabase()
@@ -183,8 +190,8 @@ export async function getNextUnmatchedAlbum(): Promise<
 
     return {
       success: true,
-      artist: result.artist || '',
-      album: result.album || '',
+      artist: result.artist,
+      album: result.album,
     }
   } catch (error) {
     console.error('Error fetching unmatched album:', error)
@@ -199,12 +206,16 @@ export async function getNextUnmatchedAlbum(): Promise<
  * Search Spotify for a specific song
  */
 export async function searchSpotifyForSong(
-  artist: string,
-  album: string,
-  track: string
+  artist: string | null,
+  album: string | null,
+  track: string | null
 ): Promise<ActionResult<{ tracks: SpotifyTrack[] }>> {
   try {
-    const tracks = await searchSpotifyTracks({ artist, album, track })
+    const tracks = await searchSpotifyTracks({
+      artist: artist || undefined,
+      album: album || undefined,
+      track: track || undefined
+    })
 
     return {
       success: true,
