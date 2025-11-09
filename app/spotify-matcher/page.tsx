@@ -6,8 +6,8 @@ import { Loader2, Check, ChevronRight, Music, Undo2 } from 'lucide-react'
 import type { Song } from '@/lib/schema'
 import type { SpotifyTrack } from '@/lib/spotify'
 import {
-  getNextUnmatchedAlbum,
-  getSongsByAlbum,
+  getRandomUnmatchedSong,
+  getSongsByArtist,
   searchSpotifyForSong,
   saveSongMatch,
   clearSongMatch,
@@ -24,40 +24,32 @@ interface SongWithMatch {
 }
 
 export default function SpotifyMatcherPage() {
-  const [currentAlbum, setCurrentAlbum] = useState<{
-    artist: string | null
-    album: string | null
-  } | null>(null)
+  const [currentArtist, setCurrentArtist] = useState<string | null>(null)
   const [songsWithMatches, setSongsWithMatches] = useState<SongWithMatch[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [matchingIds, setMatchingIds] = useState<Set<number>>(new Set())
   const [currentReviewIndex, setCurrentReviewIndex] = useState(0)
 
-  const loadNextAlbum = useCallback(async () => {
+  const loadRandomArtist = useCallback(async () => {
     try {
       setLoading(true)
       setError(null)
 
-      // 1. Get next unmatched album
-      const albumResult = await getNextUnmatchedAlbum()
+      // 1. Get a random unmatched song
+      const randomSongResult = await getRandomUnmatchedSong()
 
-      if (!albumResult.success) {
-        setError(albumResult.error)
+      if (!randomSongResult.success) {
+        setError(randomSongResult.error)
         setLoading(false)
         return
       }
 
-      setCurrentAlbum({
-        artist: albumResult.artist,
-        album: albumResult.album,
-      })
+      const randomSong = randomSongResult.song
+      setCurrentArtist(randomSong.artist)
 
-      // 2. Get all songs for this album
-      const songsResult = await getSongsByAlbum(
-        albumResult.artist,
-        albumResult.album
-      )
+      // 2. Get all songs by this artist
+      const songsResult = await getSongsByArtist(randomSong.artist)
 
       if (!songsResult.success) {
         setError(songsResult.error)
@@ -81,13 +73,13 @@ export default function SpotifyMatcherPage() {
       // 4. Search for Spotify matches for each unmatched song
       for (let i = 0; i < songsResult.songs.length; i++) {
         const song = songsResult.songs[i]
-        // Skip songs without spotify_id and with sufficient metadata
-        if (!song.spotify_id && song.title && song.artist && song.album) {
+        // Search even if some metadata is missing - user can still choose to match
+        if (!song.spotify_id) {
           searchForMatch(i, song)
         }
       }
     } catch (err) {
-      console.error('Error loading album:', err)
+      console.error('Error loading artist:', err)
       setError(err instanceof Error ? err.message : 'Unknown error')
       setLoading(false)
     }
@@ -95,10 +87,15 @@ export default function SpotifyMatcherPage() {
   }, [])
 
   useEffect(() => {
-    loadNextAlbum()
-  }, [loadNextAlbum])
+    loadRandomArtist()
+  }, [loadRandomArtist])
 
   async function searchForMatch(index: number, song: Song) {
+    // Skip songs without titles (defensive check)
+    if (!song.title || song.title.trim() === '') {
+      return
+    }
+
     // Update searching state
     setSongsWithMatches((prev) =>
       prev.map((item, i) =>
@@ -268,7 +265,7 @@ export default function SpotifyMatcherPage() {
       <div className="container mx-auto py-8">
         <div className="flex flex-col items-center justify-center min-h-[400px]">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground mb-4" />
-          <p className="text-muted-foreground">Loading album...</p>
+          <p className="text-muted-foreground">Loading artist songs...</p>
         </div>
       </div>
     )
@@ -285,13 +282,13 @@ export default function SpotifyMatcherPage() {
     )
   }
 
-  if (!currentAlbum) {
+  if (songsWithMatches.length === 0) {
     return (
       <div className="container mx-auto py-8">
         <div className="text-center">
-          <h1 className="text-3xl font-bold mb-4">All Albums Matched!</h1>
+          <h1 className="text-3xl font-bold mb-4">All Songs Matched!</h1>
           <p className="text-muted-foreground">
-            No more albums to match with Spotify.
+            No unmatched songs found.
           </p>
         </div>
       </div>
@@ -331,25 +328,22 @@ export default function SpotifyMatcherPage() {
         </div>
       )}
 
-      {/* Album Header */}
+      {/* Artist Header */}
       <div className="mb-8 p-6 border rounded-lg bg-muted/50">
         <h2 className="text-sm font-semibold text-muted-foreground mb-2">
-          Current Album
+          Current Artist
         </h2>
-        <h3 className="text-2xl font-bold">{currentAlbum.album || <span className="italic text-muted-foreground">(No Album)</span>}</h3>
-        <p className="text-lg text-muted-foreground mb-4">
-          {currentAlbum.artist || <span className="italic">(No Artist)</span>}
-        </p>
-        <div className="flex items-center justify-between">
+        <h3 className="text-2xl font-bold">{currentArtist || <span className="italic text-muted-foreground">(No Artist)</span>}</h3>
+        <div className="flex items-center justify-between mt-4">
           <p className="text-sm text-muted-foreground">
             {matchedCount} / {totalCount} songs matched
           </p>
           <Button
             variant="outline"
             size="sm"
-            onClick={() => loadNextAlbum()}
+            onClick={() => loadRandomArtist()}
           >
-            Next Album
+            Random Artist
             <ChevronRight className="h-4 w-4 ml-2" />
           </Button>
         </div>
