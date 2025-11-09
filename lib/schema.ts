@@ -5,15 +5,18 @@ import { sqliteTable, text, integer, index } from "drizzle-orm/sqlite-core";
  *
  * Represents songs imported from iTunes library with metadata
  * for searching on Spotify.
+ *
+ * Note: title, album, artist, and album_artist can be NULL in production
+ * as iTunes library data may have incomplete metadata.
  */
 export const songs = sqliteTable(
   "songs",
   {
     id: integer("id").primaryKey({ autoIncrement: true }).notNull(),
-    title: text("title"),
-    album: text("album"),
-    artist: text("artist"),
-    album_artist: text("album_artist"),
+    title: text("title").$type<string | null>(),
+    album: text("album").$type<string | null>(),
+    artist: text("artist").$type<string | null>(),
+    album_artist: text("album_artist").$type<string | null>(),
     filename: text("filename"),
     spotify_id: text("spotify_id"),
   },
