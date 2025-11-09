@@ -28,14 +28,6 @@ jobs:
       - name: Run linter
         run: npm run lint
 
-      - name: Generate lint summary
-        if: always()
-        run: |
-          echo "## 🔍 Lint Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **Status:** ✅ Passed" >> $GITHUB_STEP_SUMMARY
-          echo "- **Node Version:** $(node --version)" >> $GITHUB_STEP_SUMMARY
-
   # Job 2: Test (runs on all branches)
   test:
     name: 🧪 Test
@@ -56,14 +48,6 @@ jobs:
 
       - name: Run tests
         run: npm run test
-
-      - name: Generate test summary
-        if: always()
-        run: |
-          echo "## 🧪 Test Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **Status:** ✅ All tests passed" >> $GITHUB_STEP_SUMMARY
-          echo "- **Node Version:** $(node --version)" >> $GITHUB_STEP_SUMMARY
 
   # Job 3: Build (runs on all branches)
   build:
@@ -86,15 +70,6 @@ jobs:
 
       - name: Build application
         run: npm run build
-
-      - name: Generate build summary
-        if: always()
-        run: |
-          echo "## 📦 Build Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **Status:** ✅ Success" >> $GITHUB_STEP_SUMMARY
-          echo "- **Node Version:** $(node --version)" >> $GITHUB_STEP_SUMMARY
-          echo "- **Build Time:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")" >> $GITHUB_STEP_SUMMARY
 
   deploy:
     name: 🚀 Deploy to Production
