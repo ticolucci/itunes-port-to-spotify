@@ -2,7 +2,7 @@
 
 import { getDatabase } from './db'
 import { songs as songsTable, type Song } from './schema'
-import { eq, and, isNull } from 'drizzle-orm'
+import { eq, and, isNull, isNotNull, sql } from 'drizzle-orm'
 import { searchSpotifyTracks, type SpotifyTrack } from './spotify'
 import { fixMetadataWithAI, type MetadataFix } from './ai-metadata-fixer'
 
@@ -58,6 +58,60 @@ export async function getNextUnmatchedSong(): Promise<
 }
 
 /**
+ * Get a random song without a spotify_id
+ */
+export async function getRandomUnmatchedSong(): Promise<
+  ActionResult<{ song: Song }>
+> {
+  try {
+    const db = getDatabase()
+
+    const result = await db
+      .select()
+      .from(songsTable)
+      .where(
+        and(
+          isNull(songsTable.spotify_id),
+          isNotNull(songsTable.title),
+          sql`${songsTable.title} != ''`
+        )
+      )
+      .orderBy(sql`RANDOM()`)
+      .limit(1)
+
+    const row = result[0]
+
+    if (!row) {
+      return {
+        success: false,
+        error: 'No unmatched songs found',
+      }
+    }
+
+    const song: Song = {
+      id: row.id,
+      title: row.title,
+      artist: row.artist,
+      album: row.album,
+      album_artist: row.album_artist,
+      filename: row.filename,
+      spotify_id: row.spotify_id,
+    }
+
+    return {
+      success: true,
+      song,
+    }
+  } catch (error) {
+    console.error('Error fetching random unmatched song:', error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    }
+  }
+}
+
+/**
  * Get all songs by a specific artist, sorted by album
  */
 export async function getSongsByArtist(
@@ -69,7 +123,13 @@ export async function getSongsByArtist(
     const rows = await db
       .select()
       .from(songsTable)
-      .where(artist ? eq(songsTable.artist, artist) : isNull(songsTable.artist))
+      .where(
+        and(
+          artist ? eq(songsTable.artist, artist) : isNull(songsTable.artist),
+          isNotNull(songsTable.title),
+          sql`${songsTable.title} != ''`
+        )
+      )
       .orderBy(songsTable.album, songsTable.title)
 
     const songs: Song[] = rows.map((row) => ({
