@@ -1,9 +1,8 @@
 "use server";
 
 import { getDatabase } from "@/lib/db";
-import { songs as songsTable } from "@/lib/schema";
+import { songs as songsTable, type Song } from "@/lib/schema";
 import { asc, count } from "drizzle-orm";
-import type { Song } from "@/lib/types";
 
 export async function fetchSongs(options?: {
   limit?: number;
@@ -29,11 +28,12 @@ export async function fetchSongs(options?: {
     // Map database rows to Song objects
     const songs: Song[] = rows.map((row) => ({
       id: row.id,
-      title: row.title || "",
-      artist: row.artist || "",
-      album: row.album || "",
-      album_artist: row.album_artist || "",
-      filename: row.filename || "",
+      title: row.title,
+      artist: row.artist,
+      album: row.album,
+      album_artist: row.album_artist,
+      filename: row.filename,
+      spotify_id: row.spotify_id,
     }));
 
     return {

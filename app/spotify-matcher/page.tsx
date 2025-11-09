@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Loader2, Check, ChevronRight, Music, Undo2 } from 'lucide-react'
-import type { Song } from '@/lib/types'
+import type { Song } from '@/lib/schema'
 import type { SpotifyTrack } from '@/lib/spotify'
 import {
   getNextUnmatchedAlbum,
@@ -24,8 +24,8 @@ interface SongWithMatch {
 
 export default function SpotifyMatcherPage() {
   const [currentAlbum, setCurrentAlbum] = useState<{
-    artist: string
-    album: string
+    artist: string | null
+    album: string | null
   } | null>(null)
   const [songsWithMatches, setSongsWithMatches] = useState<SongWithMatch[]>([])
   const [loading, setLoading] = useState(true)
@@ -80,7 +80,8 @@ export default function SpotifyMatcherPage() {
       // 4. Search for Spotify matches for each unmatched song
       for (let i = 0; i < songsResult.songs.length; i++) {
         const song = songsResult.songs[i]
-        if (!song.spotify_id) {
+        // Skip songs without spotify_id and with sufficient metadata
+        if (!song.spotify_id && song.title && song.artist && song.album) {
           searchForMatch(i, song)
         }
       }
@@ -238,7 +239,7 @@ export default function SpotifyMatcherPage() {
     }
   }
 
-  function calculateSimilarity(localTitle: string, spotifyTitle: string): number {
+  function calculateSimilarity(localTitle: string | null, spotifyTitle: string): number {
     // Handle null/undefined values
     if (!localTitle || !spotifyTitle) return 0
 
@@ -334,9 +335,9 @@ export default function SpotifyMatcherPage() {
         <h2 className="text-sm font-semibold text-muted-foreground mb-2">
           Current Album
         </h2>
-        <h3 className="text-2xl font-bold">{currentAlbum.album}</h3>
+        <h3 className="text-2xl font-bold">{currentAlbum.album || <span className="italic text-muted-foreground">(No Album)</span>}</h3>
         <p className="text-lg text-muted-foreground mb-4">
-          {currentAlbum.artist}
+          {currentAlbum.artist || <span className="italic">(No Artist)</span>}
         </p>
         <div className="flex items-center justify-between">
           <p className="text-sm text-muted-foreground">
@@ -374,13 +375,13 @@ export default function SpotifyMatcherPage() {
                 </div>
                 <div className="min-w-0">
                   <p className="font-medium truncate">
-                    {songWithMatch.dbSong.title}
+                    {songWithMatch.dbSong.title || <span className="italic text-muted-foreground">(No Title)</span>}
                   </p>
                   <p className="text-sm text-muted-foreground truncate">
-                    {songWithMatch.dbSong.artist}
+                    {songWithMatch.dbSong.artist || <span className="italic">(No Artist)</span>}
                   </p>
                   <p className="text-xs text-muted-foreground truncate">
-                    {songWithMatch.dbSong.album}
+                    {songWithMatch.dbSong.album || <span className="italic">(No Album)</span>}
                   </p>
                 </div>
               </div>
@@ -428,6 +429,10 @@ export default function SpotifyMatcherPage() {
                       </p>
                     </div>
                   </>
+                ) : !songWithMatch.dbSong.title || !songWithMatch.dbSong.artist || !songWithMatch.dbSong.album ? (
+                  <p className="text-sm text-amber-600 italic">
+                    Incomplete metadata - skipped
+                  </p>
                 ) : (
                   <p className="text-sm text-muted-foreground">
                     No match found

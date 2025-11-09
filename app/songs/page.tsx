@@ -11,7 +11,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Search, Trash2, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
-import type { Song } from "@/lib/types";
+import type { Song } from "@/lib/schema";
 import { fetchSongs } from "@/lib/actions";
 import { SongRow } from "./_components/song-row";
 
@@ -92,12 +92,12 @@ export default function SongsPage() {
   };
 
   const handleSearch = (song: Song) => {
-    alert(`Searching DB for: ${song.title} by ${song.artist}`);
+    alert(`Searching DB for: ${song.title || '(No Title)'} by ${song.artist || '(No Artist)'}`);
     // TODO: Connect to Ruby SpotifyClient or reimplement in TypeScript
   };
 
   const handleDelete = (song: Song) => {
-    alert(`Delete song: ${song.title} (ID: ${song.id})`);
+    alert(`Delete song: ${song.title || '(No Title)'} (ID: ${song.id})`);
     // TODO: Implement delete functionality
   };
 
