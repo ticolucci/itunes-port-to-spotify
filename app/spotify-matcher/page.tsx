@@ -30,6 +30,7 @@ export default function SpotifyMatcherPage() {
   const [error, setError] = useState<string | null>(null)
   const [matchingIds, setMatchingIds] = useState<Set<number>>(new Set())
   const [currentReviewIndex, setCurrentReviewIndex] = useState(0)
+  const [autoMatchEnabled, setAutoMatchEnabled] = useState(false)
 
   const loadRandomArtist = useCallback(async () => {
     try {
@@ -90,6 +91,44 @@ export default function SpotifyMatcherPage() {
     loadRandomArtist()
   }, [loadRandomArtist])
 
+  // Auto-match existing search results when toggle is enabled
+  useEffect(() => {
+    if (!autoMatchEnabled) return
+
+    async function autoMatchEligibleSongs() {
+      for (const songWithMatch of songsWithMatches) {
+        // Check if this song is eligible for auto-match
+        if (
+          songWithMatch.spotifyMatch &&
+          songWithMatch.similarity >= 80 &&
+          !songWithMatch.isMatched &&
+          !matchingIds.has(songWithMatch.dbSong.id)
+        ) {
+          const matchResult = await saveSongMatch(
+            songWithMatch.dbSong.id,
+            songWithMatch.spotifyMatch.id
+          )
+
+          if (matchResult.success) {
+            setSongsWithMatches((prev) =>
+              prev.map((item) =>
+                item.dbSong.id === songWithMatch.dbSong.id
+                  ? {
+                      ...item,
+                      isMatched: true,
+                      dbSong: { ...item.dbSong, spotify_id: songWithMatch.spotifyMatch!.id },
+                    }
+                  : item
+              )
+            )
+          }
+        }
+      }
+    }
+
+    autoMatchEligibleSongs()
+  }, [autoMatchEnabled, songsWithMatches, matchingIds])
+
   async function searchForMatch(index: number, song: Song) {
     // Skip songs without titles (defensive check)
     if (!song.title || song.title.trim() === '') {
@@ -115,18 +154,54 @@ export default function SpotifyMatcherPage() {
         const bestMatch = result.tracks[0]
         const similarity = calculateSimilarity(song.title, bestMatch.name)
 
-        setSongsWithMatches((prev) =>
-          prev.map((item, i) =>
-            i === index
-              ? {
-                  ...item,
-                  spotifyMatch: bestMatch,
-                  similarity,
-                  searching: false,
-                }
-              : item
+        // Auto-match if enabled and similarity >= 80%
+        if (autoMatchEnabled && similarity >= 80) {
+          const matchResult = await saveSongMatch(song.id, bestMatch.id)
+          if (matchResult.success) {
+            setSongsWithMatches((prev) =>
+              prev.map((item, i) =>
+                i === index
+                  ? {
+                      ...item,
+                      spotifyMatch: bestMatch,
+                      similarity,
+                      searching: false,
+                      isMatched: true,
+                      dbSong: { ...item.dbSong, spotify_id: bestMatch.id },
+                    }
+                  : item
+              )
+            )
+          } else {
+            // Auto-match failed, fall back to manual match
+            setSongsWithMatches((prev) =>
+              prev.map((item, i) =>
+                i === index
+                  ? {
+                      ...item,
+                      spotifyMatch: bestMatch,
+                      similarity,
+                      searching: false,
+                    }
+                  : item
+              )
+            )
+          }
+        } else {
+          // Manual match mode
+          setSongsWithMatches((prev) =>
+            prev.map((item, i) =>
+              i === index
+                ? {
+                    ...item,
+                    spotifyMatch: bestMatch,
+                    similarity,
+                    searching: false,
+                  }
+                : item
+            )
           )
-        )
+        }
       } else {
         setSongsWithMatches((prev) =>
           prev.map((item, i) =>
@@ -302,7 +377,19 @@ export default function SpotifyMatcherPage() {
 
   return (
     <div className="container mx-auto py-8">
-      <h1 className="text-3xl font-bold mb-2">Spotify Matcher</h1>
+      <div className="flex items-center justify-between mb-2">
+        <h1 className="text-3xl font-bold">Spotify Matcher</h1>
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={autoMatchEnabled}
+            onChange={(e) => setAutoMatchEnabled(e.target.checked)}
+            aria-label="Auto-match songs with similarity >= 80%"
+            className="w-4 h-4"
+          />
+          <span className="text-sm">Auto-match (≥80%)</span>
+        </label>
+      </div>
       <p className="text-muted-foreground mb-8">
         Match your iTunes songs with Spotify tracks
       </p>
