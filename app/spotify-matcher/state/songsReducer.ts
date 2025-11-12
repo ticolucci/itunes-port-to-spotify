@@ -1,0 +1,91 @@
+import type { SongWithMatch } from '@/lib/song-matcher-utils'
+import type { SpotifyTrack } from '@/lib/spotify'
+
+export type SongsAction =
+  | { type: 'SET_SONGS'; payload: SongWithMatch[] }
+  | { type: 'SET_SEARCHING'; payload: { songId: number; searching: boolean } }
+  | { type: 'UPDATE_MATCH'; payload: { songId: number; spotifyMatch: SpotifyTrack; similarity: number } }
+  | { type: 'AUTO_MATCH'; payload: { songId: number; spotifyMatch: SpotifyTrack; similarity: number; spotifyId: string } }
+  | { type: 'MARK_MATCHED'; payload: { songId: number; spotifyId: string } }
+  | { type: 'BATCH_MATCH'; payload: Map<number, { spotifyMatch: SpotifyTrack; similarity: number }> }
+  | { type: 'CLEAR_MATCH'; payload: { songId: number } }
+
+export function songsReducer(state: SongWithMatch[], action: SongsAction): SongWithMatch[] {
+  switch (action.type) {
+    case 'SET_SONGS':
+      return action.payload
+
+    case 'SET_SEARCHING':
+      return state.map((item) =>
+        item.dbSong.id === action.payload.songId
+          ? { ...item, searching: action.payload.searching }
+          : item
+      )
+
+    case 'UPDATE_MATCH':
+      return state.map((item) =>
+        item.dbSong.id === action.payload.songId
+          ? {
+              ...item,
+              spotifyMatch: action.payload.spotifyMatch,
+              similarity: action.payload.similarity,
+              searching: false,
+            }
+          : item
+      )
+
+    case 'AUTO_MATCH':
+      return state.map((item) =>
+        item.dbSong.id === action.payload.songId
+          ? {
+              ...item,
+              spotifyMatch: action.payload.spotifyMatch,
+              similarity: action.payload.similarity,
+              searching: false,
+              isMatched: true,
+              dbSong: { ...item.dbSong, spotify_id: action.payload.spotifyId },
+            }
+          : item
+      )
+
+    case 'MARK_MATCHED':
+      return state.map((item) =>
+        item.dbSong.id === action.payload.songId
+          ? {
+              ...item,
+              isMatched: true,
+              dbSong: { ...item.dbSong, spotify_id: action.payload.spotifyId },
+            }
+          : item
+      )
+
+    case 'BATCH_MATCH':
+      return state.map((item) => {
+        const matchData = action.payload.get(item.dbSong.id)
+        return matchData
+          ? {
+              ...item,
+              spotifyMatch: matchData.spotifyMatch,
+              similarity: matchData.similarity,
+              searching: false,
+              isMatched: true,
+              dbSong: { ...item.dbSong, spotify_id: matchData.spotifyMatch.id },
+            }
+          : item
+      })
+
+    case 'CLEAR_MATCH':
+      return state.map((item) =>
+        item.dbSong.id === action.payload.songId
+          ? {
+              ...item,
+              isMatched: false,
+              dbSong: { ...item.dbSong, spotify_id: null },
+            }
+          : item
+      )
+
+    default:
+      return state
+  }
+}
