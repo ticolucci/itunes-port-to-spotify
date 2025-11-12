@@ -13,6 +13,7 @@ import {
 } from '@/lib/spotify-actions'
 import { ReviewCard } from './ReviewCard'
 import { SongTableRow } from './components/SongTableRow'
+import { ArtistHeader } from './components/ArtistHeader'
 import { calculateSimilarity } from '@/lib/similarity'
 import {
   type SongWithMatch,
@@ -369,25 +370,12 @@ export default function SpotifyMatcherPage() {
       )}
 
       {/* Artist Header */}
-      <div className="mb-8 p-6 border rounded-lg bg-muted/50">
-        <h2 className="text-sm font-semibold text-muted-foreground mb-2">
-          Current Artist
-        </h2>
-        <h3 className="text-2xl font-bold">{currentArtist || <span className="italic text-muted-foreground">(No Artist)</span>}</h3>
-        <div className="flex items-center justify-between mt-4">
-          <p className="text-sm text-muted-foreground">
-            {matchedCount} / {totalCount} songs matched
-          </p>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => loadRandomArtist()}
-          >
-            Random Artist
-            <ChevronRight className="h-4 w-4 ml-2" />
-          </Button>
-        </div>
-      </div>
+      <ArtistHeader
+        artist={currentArtist}
+        matchedCount={matchedCount}
+        totalCount={totalCount}
+        onLoadRandomArtist={loadRandomArtist}
+      />
 
       {/* Songs Table */}
       <div className="space-y-3">
