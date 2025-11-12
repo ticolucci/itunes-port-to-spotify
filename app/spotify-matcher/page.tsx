@@ -15,14 +15,13 @@ import {
 import { ReviewCard } from './ReviewCard'
 import { AISuggestion } from './AISuggestion'
 import { calculateSimilarity } from '@/lib/similarity'
-
-interface SongWithMatch {
-  dbSong: Song
-  spotifyMatch: SpotifyTrack | null
-  similarity: number
-  isMatched: boolean
-  searching: boolean
-}
+import {
+  type SongWithMatch,
+  shouldSkipSong,
+  hasIncompleteMetadata,
+  createInitialSongs,
+  getEligibleAutoMatchSongs,
+} from '@/lib/song-matcher-utils'
 
 type SongsAction =
   | { type: 'SET_SONGS'; payload: SongWithMatch[] }
@@ -152,13 +151,7 @@ export default function SpotifyMatcherPage() {
       }
 
       // 3. Initialize songs with empty matches
-      const initialSongs: SongWithMatch[] = songsResult.songs.map((song) => ({
-        dbSong: song,
-        spotifyMatch: null,
-        similarity: 0,
-        isMatched: !!song.spotify_id,
-        searching: false,
-      }))
+      const initialSongs = createInitialSongs(songsResult.songs)
 
       dispatchSongs({ type: 'SET_SONGS', payload: initialSongs })
       setLoading(false)
@@ -230,13 +223,10 @@ export default function SpotifyMatcherPage() {
 
       try {
         // Filter songs we haven't processed yet
-        const eligibleSongs = songsWithMatches.filter(
-          (s) =>
-            s.spotifyMatch &&
-            s.similarity >= 80 &&
-            !s.isMatched &&
-            !matchingIds.has(s.dbSong.id) &&
-            !processedAutoMatches.current.has(s.dbSong.id)
+        const eligibleSongs = getEligibleAutoMatchSongs(
+          songsWithMatches,
+          matchingIds,
+          processedAutoMatches.current
         )
 
         // Mark as processed BEFORE async operations to prevent duplicates
@@ -273,7 +263,7 @@ export default function SpotifyMatcherPage() {
 
   async function searchForMatch(song: Song) {
     // Skip songs without titles (defensive check)
-    if (!song.title || song.title.trim() === '') {
+    if (shouldSkipSong(song)) {
       return
     }
 
@@ -564,7 +554,7 @@ export default function SpotifyMatcherPage() {
                       </p>
                     </div>
                   </>
-                ) : !songWithMatch.dbSong.title || !songWithMatch.dbSong.artist || !songWithMatch.dbSong.album ? (
+                ) : hasIncompleteMetadata(songWithMatch.dbSong) ? (
                   <div className="w-full">
                     <p className="text-sm text-amber-600 italic mb-3">
                       Incomplete metadata - skipped
