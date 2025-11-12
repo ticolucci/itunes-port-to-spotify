@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef, useReducer } from 'react'
 import { Button } from '@/components/ui/button'
 import { Loader2, Check, ChevronRight, Music, Undo2 } from 'lucide-react'
 import type { Song } from '@/lib/schema'
@@ -23,19 +23,111 @@ interface SongWithMatch {
   searching: boolean
 }
 
+type SongsAction =
+  | { type: 'SET_SONGS'; payload: SongWithMatch[] }
+  | { type: 'SET_SEARCHING'; payload: { songId: number; searching: boolean } }
+  | { type: 'UPDATE_MATCH'; payload: { songId: number; spotifyMatch: SpotifyTrack; similarity: number } }
+  | { type: 'AUTO_MATCH'; payload: { songId: number; spotifyMatch: SpotifyTrack; similarity: number; spotifyId: string } }
+  | { type: 'MARK_MATCHED'; payload: { songId: number; spotifyId: string } }
+  | { type: 'BATCH_MATCH'; payload: Map<number, { spotifyMatch: SpotifyTrack; similarity: number }> }
+  | { type: 'CLEAR_MATCH'; payload: { songId: number } }
+
+function songsReducer(state: SongWithMatch[], action: SongsAction): SongWithMatch[] {
+  switch (action.type) {
+    case 'SET_SONGS':
+      return action.payload
+
+    case 'SET_SEARCHING':
+      return state.map((item) =>
+        item.dbSong.id === action.payload.songId
+          ? { ...item, searching: action.payload.searching }
+          : item
+      )
+
+    case 'UPDATE_MATCH':
+      return state.map((item) =>
+        item.dbSong.id === action.payload.songId
+          ? {
+              ...item,
+              spotifyMatch: action.payload.spotifyMatch,
+              similarity: action.payload.similarity,
+              searching: false,
+            }
+          : item
+      )
+
+    case 'AUTO_MATCH':
+      return state.map((item) =>
+        item.dbSong.id === action.payload.songId
+          ? {
+              ...item,
+              spotifyMatch: action.payload.spotifyMatch,
+              similarity: action.payload.similarity,
+              searching: false,
+              isMatched: true,
+              dbSong: { ...item.dbSong, spotify_id: action.payload.spotifyId },
+            }
+          : item
+      )
+
+    case 'MARK_MATCHED':
+      return state.map((item) =>
+        item.dbSong.id === action.payload.songId
+          ? {
+              ...item,
+              isMatched: true,
+              dbSong: { ...item.dbSong, spotify_id: action.payload.spotifyId },
+            }
+          : item
+      )
+
+    case 'BATCH_MATCH':
+      return state.map((item) => {
+        const matchData = action.payload.get(item.dbSong.id)
+        return matchData
+          ? {
+              ...item,
+              spotifyMatch: matchData.spotifyMatch,
+              similarity: matchData.similarity,
+              searching: false,
+              isMatched: true,
+              dbSong: { ...item.dbSong, spotify_id: matchData.spotifyMatch.id },
+            }
+          : item
+      })
+
+    case 'CLEAR_MATCH':
+      return state.map((item) =>
+        item.dbSong.id === action.payload.songId
+          ? {
+              ...item,
+              isMatched: false,
+              dbSong: { ...item.dbSong, spotify_id: null },
+            }
+          : item
+      )
+
+    default:
+      return state
+  }
+}
+
 export default function SpotifyMatcherPage() {
   const [currentArtist, setCurrentArtist] = useState<string | null>(null)
-  const [songsWithMatches, setSongsWithMatches] = useState<SongWithMatch[]>([])
+  const [songsWithMatches, dispatchSongs] = useReducer(songsReducer, [])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [matchingIds, setMatchingIds] = useState<Set<number>>(new Set())
   const [currentReviewIndex, setCurrentReviewIndex] = useState(0)
   const [autoMatchEnabled, setAutoMatchEnabled] = useState(false)
+  const processedAutoMatches = useRef<Set<number>>(new Set())
+  const autoMatchInProgress = useRef(false)
 
   const loadRandomArtist = useCallback(async () => {
     try {
       setLoading(true)
       setError(null)
+      processedAutoMatches.current.clear() // Reset tracking when loading new artist
 
       // 1. Get a random unmatched song
       const randomSongResult = await getRandomUnmatchedSong()
@@ -67,155 +159,150 @@ export default function SpotifyMatcherPage() {
         searching: false,
       }))
 
-      setSongsWithMatches(initialSongs)
+      dispatchSongs({ type: 'SET_SONGS', payload: initialSongs })
       setLoading(false)
       setCurrentReviewIndex(0) // Reset review index
 
       // 4. Search for Spotify matches for each unmatched song
-      for (let i = 0; i < songsResult.songs.length; i++) {
-        const song = songsResult.songs[i]
-        // Search even if some metadata is missing - user can still choose to match
+      songsResult.songs.forEach((song: Song) => {
         if (!song.spotify_id) {
-          searchForMatch(i, song)
+          searchForMatch(song)
         }
-      }
-    } catch (err) {
+      })
+        } catch (err) {
       console.error('Error loading artist:', err)
       setError(err instanceof Error ? err.message : 'Unknown error')
       setLoading(false)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+      }, [])
 
   useEffect(() => {
     loadRandomArtist()
   }, [loadRandomArtist])
+
+  /**
+   * Attempts to save an auto-match to the database.
+   * Returns the spotify ID if successful, null otherwise.
+   */
+  const attemptAutoMatch = useCallback(
+    async (songId: number, spotifyId: string, similarity: number): Promise<string | null> => {
+      if (!autoMatchEnabled || similarity < 80) return null
+
+      const matchResult = await saveSongMatch(songId, spotifyId)
+      if (!matchResult.success) return null
+
+      return spotifyId
+    },
+    [autoMatchEnabled]
+  )
+
+  /**
+   * Attempts to auto-match a song with its Spotify match and updates state.
+   * Returns true if match was successful, false otherwise.
+   */
+  async function attemptAutoMatchAndUpdateState(
+    songId: number,
+    spotifyMatch: SpotifyTrack,
+    similarity: number
+  ): Promise<boolean> {
+    const spotifyId = await attemptAutoMatch(songId, spotifyMatch.id, similarity)
+    if (!spotifyId) return false
+
+    // Update state using reducer action
+    dispatchSongs({
+      type: 'AUTO_MATCH',
+      payload: { songId, spotifyMatch, similarity, spotifyId }
+    })
+
+    return true
+  }
 
   // Auto-match existing search results when toggle is enabled
   useEffect(() => {
     if (!autoMatchEnabled) return
 
     async function autoMatchEligibleSongs() {
-      for (const songWithMatch of songsWithMatches) {
-        // Check if this song is eligible for auto-match
-        if (
-          songWithMatch.spotifyMatch &&
-          songWithMatch.similarity >= 80 &&
-          !songWithMatch.isMatched &&
-          !matchingIds.has(songWithMatch.dbSong.id)
-        ) {
-          const matchResult = await saveSongMatch(
-            songWithMatch.dbSong.id,
-            songWithMatch.spotifyMatch.id
-          )
+      // Prevent race conditions - only one auto-match process at a time
+      if (autoMatchInProgress.current) return
+      autoMatchInProgress.current = true
 
-          if (matchResult.success) {
-            setSongsWithMatches((prev) =>
-              prev.map((item) =>
-                item.dbSong.id === songWithMatch.dbSong.id
-                  ? {
-                      ...item,
-                      isMatched: true,
-                      dbSong: { ...item.dbSong, spotify_id: songWithMatch.spotifyMatch!.id },
-                    }
-                  : item
-              )
-            )
+      try {
+        // Filter songs we haven't processed yet
+        const eligibleSongs = songsWithMatches.filter(
+          (s) =>
+            s.spotifyMatch &&
+            s.similarity >= 80 &&
+            !s.isMatched &&
+            !matchingIds.has(s.dbSong.id) &&
+            !processedAutoMatches.current.has(s.dbSong.id)
+        )
+
+        // Mark as processed BEFORE async operations to prevent duplicates
+        eligibleSongs.forEach((s) => processedAutoMatches.current.add(s.dbSong.id))
+
+        // Collect all successful matches
+        const matchResults = new Map<number, { spotifyMatch: SpotifyTrack; similarity: number }>()
+
+        await Promise.all(eligibleSongs.map(async (songWithMatch) => {
+          const spotifyId = await attemptAutoMatch(
+            songWithMatch.dbSong.id,
+            songWithMatch.spotifyMatch!.id,
+            songWithMatch.similarity
+          )
+          if (spotifyId) {
+            matchResults.set(songWithMatch.dbSong.id, {
+              spotifyMatch: songWithMatch.spotifyMatch!,
+              similarity: songWithMatch.similarity,
+            })
           }
+        }))
+
+        // Single batched state update for all successful matches
+        if (matchResults.size > 0) {
+          dispatchSongs({ type: 'BATCH_MATCH', payload: matchResults })
         }
+      } finally {
+        autoMatchInProgress.current = false
       }
     }
 
     autoMatchEligibleSongs()
-  }, [autoMatchEnabled, songsWithMatches, matchingIds])
+  }, [autoMatchEnabled, songsWithMatches, matchingIds, attemptAutoMatch])
 
-  async function searchForMatch(index: number, song: Song) {
+  async function searchForMatch(song: Song) {
     // Skip songs without titles (defensive check)
     if (!song.title || song.title.trim() === '') {
       return
     }
 
     // Update searching state
-    setSongsWithMatches((prev) =>
-      prev.map((item, i) =>
-        i === index ? { ...item, searching: true } : item
-      )
-    )
+    dispatchSongs({ type: 'SET_SEARCHING', payload: { songId: song.id, searching: true } })
 
     try {
-      const result = await searchSpotifyForSong(
-        song.artist,
-        song.album,
-        song.title
-      )
+      const result = await searchSpotifyForSong(song.artist, song.album, song.title)
 
       if (result.success && result.tracks.length > 0) {
         // Find best match
         const bestMatch = result.tracks[0]
         const similarity = calculateSimilarity(song.title, bestMatch.name)
 
-        // Auto-match if enabled and similarity >= 80%
-        if (autoMatchEnabled && similarity >= 80) {
-          const matchResult = await saveSongMatch(song.id, bestMatch.id)
-          if (matchResult.success) {
-            setSongsWithMatches((prev) =>
-              prev.map((item, i) =>
-                i === index
-                  ? {
-                      ...item,
-                      spotifyMatch: bestMatch,
-                      similarity,
-                      searching: false,
-                      isMatched: true,
-                      dbSong: { ...item.dbSong, spotify_id: bestMatch.id },
-                    }
-                  : item
-              )
-            )
-          } else {
-            // Auto-match failed, fall back to manual match
-            setSongsWithMatches((prev) =>
-              prev.map((item, i) =>
-                i === index
-                  ? {
-                      ...item,
-                      spotifyMatch: bestMatch,
-                      similarity,
-                      searching: false,
-                    }
-                  : item
-              )
-            )
-          }
-        } else {
-          // Manual match mode
-          setSongsWithMatches((prev) =>
-            prev.map((item, i) =>
-              i === index
-                ? {
-                    ...item,
-                    spotifyMatch: bestMatch,
-                    similarity,
-                    searching: false,
-                  }
-                : item
-            )
-          )
+        // Try auto-match (will only succeed if enabled and similarity >= 80%)
+        const wasAutoMatched = await attemptAutoMatchAndUpdateState(song.id, bestMatch, similarity )
+
+        // If not auto-matched, update state with manual match option
+        if (!wasAutoMatched) {
+          dispatchSongs({
+            type: 'UPDATE_MATCH',
+            payload: { songId: song.id, spotifyMatch: bestMatch, similarity }
+          })
         }
       } else {
-        setSongsWithMatches((prev) =>
-          prev.map((item, i) =>
-            i === index ? { ...item, searching: false } : item
-          )
-        )
+        dispatchSongs({ type: 'SET_SEARCHING', payload: { songId: song.id, searching: false } })
       }
     } catch (err) {
       console.error('Error searching for match:', err)
-      setSongsWithMatches((prev) =>
-        prev.map((item, i) =>
-          i === index ? { ...item, searching: false } : item
-        )
-      )
+      dispatchSongs({ type: 'SET_SEARCHING', payload: { songId: song.id, searching: false } })
     }
   }
 
@@ -236,13 +323,7 @@ export default function SpotifyMatcherPage() {
       }
 
       // Update local state to mark as matched
-      setSongsWithMatches((prev) =>
-        prev.map((item) =>
-          item.dbSong.id === songId
-            ? { ...item, isMatched: true, dbSong: { ...item.dbSong, spotify_id: spotifyId } }
-            : item
-        )
-      )
+      dispatchSongs({ type: 'MARK_MATCHED', payload: { songId, spotifyId } })
 
       setMatchingIds((prev) => {
         const next = new Set(prev)
@@ -288,13 +369,7 @@ export default function SpotifyMatcherPage() {
       }
 
       // Update local state to mark as unmatched
-      setSongsWithMatches((prev) =>
-        prev.map((item) =>
-          item.dbSong.id === songId
-            ? { ...item, isMatched: false, dbSong: { ...item.dbSong, spotify_id: null } }
-            : item
-        )
-      )
+      dispatchSongs({ type: 'CLEAR_MATCH', payload: { songId } })
 
       setMatchingIds((prev) => {
         const next = new Set(prev)

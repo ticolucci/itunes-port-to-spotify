@@ -243,7 +243,7 @@ describe('SpotifyMatcherPage', () => {
     )
 
     // Verify the song was saved to database with spotify_id
-    const matchedSongs = testDb.prepare('SELECT * FROM songs WHERE spotify_id IS NOT NULL').all()
+    const matchedSongs = testDb.prepare('SELECT * FROM songs WHERE spotify_id IS NOT NULL').all() as Array<{ spotify_id: string }>
     expect(matchedSongs.length).toBe(1)
     expect(matchedSongs[0].spotify_id).toBe('spotify-auto-match')
   })
@@ -340,6 +340,98 @@ describe('SpotifyMatcherPage', () => {
     // Verify song was NOT saved to database
     const matchedSongs = testDb.prepare('SELECT * FROM songs WHERE spotify_id IS NOT NULL').all()
     expect(matchedSongs.length).toBe(0)
+  })
+
+  it('handles toggling auto-match multiple times without infinite loop', async () => {
+    // Insert 2 songs that will match at 100% similarity
+    const insert = testDb.prepare(`
+      INSERT INTO songs (title, artist, album, album_artist, filename, spotify_id)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `)
+
+    insert.run('Song One', 'Test Artist', 'Test Album', null, 'file1.mp3', null)
+    insert.run('Song Two', 'Test Artist', 'Test Album', null, 'file2.mp3', null)
+
+    // Mock Spotify to return exact matches
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    let searchCallCount = 0
+    mockSearchSpotifyTracks.mockImplementation(async (params) => {
+      searchCallCount++
+      if (params.track === 'Song One') {
+        return [{
+          id: 'spotify-one',
+          name: 'Song One',
+          artists: [{ name: 'Test Artist' }],
+          album: {
+            name: 'Test Album',
+            images: [{ url: 'https://example.com/cover.jpg', height: 300, width: 300 }],
+          },
+          uri: 'spotify:track:one',
+        }]
+      }
+      return [{
+        id: 'spotify-two',
+        name: 'Song Two',
+        artists: [{ name: 'Test Artist' }],
+        album: {
+          name: 'Test Album',
+          images: [{ url: 'https://example.com/cover.jpg', height: 300, width: 300 }],
+        },
+        uri: 'spotify:track:two',
+      }]
+    })
+
+    const { container } = render(<SpotifyMatcherPage />)
+
+    // Wait for initial searches to complete
+    await waitFor(() => {
+      expect(screen.getAllByText('Song One').length).toBeGreaterThan(0)
+      expect(screen.getAllByText('Song Two').length).toBeGreaterThan(0)
+    })
+
+    // Enable auto-match toggle
+    const toggle = await waitFor(() => {
+      const t = container.querySelector('input[type="checkbox"][aria-label*="Auto-match"]') as HTMLInputElement
+      expect(t).toBeTruthy()
+      return t
+    })
+
+    act(() => {
+      toggle.click()
+    })
+
+    // Wait for auto-match to complete
+    await waitFor(
+      () => {
+        const undoButtons = screen.queryAllByRole('button', { name: /Undo/i })
+        expect(undoButtons.length).toBe(2) // Both songs should be matched
+      },
+      { timeout: 1000 }
+    )
+
+    // Verify both songs were saved to database
+    const matchedSongs = testDb.prepare('SELECT * FROM songs WHERE spotify_id IS NOT NULL').all()
+    expect(matchedSongs.length).toBe(2)
+
+    // Toggle OFF
+    act(() => {
+      toggle.click()
+    })
+
+    // Wait a bit to ensure no additional processing
+    await new Promise(resolve => setTimeout(resolve, 100))
+
+    // Toggle ON again
+    act(() => {
+      toggle.click()
+    })
+
+    // Wait again to ensure no duplicate processing
+    await new Promise(resolve => setTimeout(resolve, 100))
+
+    // Verify no duplicate saves (songs are still just 2, not duplicated)
+    const finalMatchedSongs = testDb.prepare('SELECT * FROM songs WHERE spotify_id IS NOT NULL').all()
+    expect(finalMatchedSongs.length).toBe(2)
   })
 
   it('displays message when no unmatched songs exist', async () => {
