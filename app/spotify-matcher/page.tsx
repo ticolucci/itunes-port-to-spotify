@@ -14,6 +14,7 @@ import {
 } from '@/lib/spotify-actions'
 import { ReviewCard } from './ReviewCard'
 import { AISuggestion } from './AISuggestion'
+import { calculateSimilarity } from '@/lib/similarity'
 
 interface SongWithMatch {
   dbSong: Song
@@ -385,29 +386,6 @@ export default function SpotifyMatcherPage() {
         return next
       })
     }
-  }
-
-  function calculateSimilarity(localTitle: string | null, spotifyTitle: string): number {
-    // Handle null/undefined values
-    if (!localTitle || !spotifyTitle) return 0
-
-    const normalize = (str: string) =>
-      str.toLowerCase().replace(/[^a-z0-9]/g, '')
-    const local = normalize(localTitle)
-    const spotify = normalize(spotifyTitle)
-
-    if (local === spotify) return 100
-
-    // Simple substring matching
-    if (local.includes(spotify) || spotify.includes(local)) return 80
-
-    // Check word overlap
-    const localWords = local.split(/\s+/)
-    const spotifyWords = spotify.split(/\s+/)
-    const commonWords = localWords.filter((word) => spotifyWords.includes(word))
-    const similarity = (commonWords.length / Math.max(localWords.length, spotifyWords.length)) * 100
-
-    return Math.round(similarity)
   }
 
   if (loading) {
