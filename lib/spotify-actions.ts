@@ -59,13 +59,50 @@ export async function getNextUnmatchedSong(): Promise<
 
 /**
  * Get a random song without a spotify_id
+ * @param testSongId - Optional song ID to fetch for E2E testing (only works when ENABLE_TEST_API=true)
  */
-export async function getRandomUnmatchedSong(): Promise<
+export async function getRandomUnmatchedSong(
+  testSongId?: number
+): Promise<
   ActionResult<{ song: Song }>
 > {
   try {
     const db = getDatabase()
 
+    // Allow tests to request a specific song by ID
+    if (testSongId && process.env.ENABLE_TEST_API === 'true') {
+      const result = await db
+        .select()
+        .from(songsTable)
+        .where(eq(songsTable.id, testSongId))
+        .limit(1)
+
+      const row = result[0]
+
+      if (!row) {
+        return {
+          success: false,
+          error: `Song with ID ${testSongId} not found`,
+        }
+      }
+
+      const song: Song = {
+        id: row.id,
+        title: row.title,
+        artist: row.artist,
+        album: row.album,
+        album_artist: row.album_artist,
+        filename: row.filename,
+        spotify_id: row.spotify_id,
+      }
+
+      return {
+        success: true,
+        song,
+      }
+    }
+
+    // Normal random selection
     const result = await db
       .select()
       .from(songsTable)

@@ -39,8 +39,14 @@ export default function SpotifyMatcherPage() {
       setError(null)
       processedAutoMatches.current.clear() // Reset tracking when loading new artist
 
-      // 1. Get a random unmatched song
-      const randomSongResult = await getRandomUnmatchedSong()
+      // Check for test mode query param (for E2E testing)
+      const params = new URLSearchParams(window.location.search)
+      const testSongId = params.get('test_song_id')
+
+      // 1. Get a random unmatched song (or specific test song)
+      const randomSongResult = await getRandomUnmatchedSong(
+        testSongId ? parseInt(testSongId, 10) : undefined
+      )
 
       if (!randomSongResult.success) {
         setError(randomSongResult.error)
