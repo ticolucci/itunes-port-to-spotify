@@ -1,40 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import { songsReducer, type SongsAction } from './songsReducer'
 import type { SongWithMatch } from '@/lib/song-matcher-utils'
-import type { Song } from '@/lib/schema'
-import type { SpotifyTrack } from '@/lib/spotify'
-
-// Test fixtures
-const createMockSong = (overrides: Partial<Song> = {}): Song => ({
-  id: 1,
-  title: 'Test Song',
-  artist: 'Test Artist',
-  album: 'Test Album',
-  album_artist: null,
-  filename: null,
-  spotify_id: null,
-  ...overrides,
-})
-
-const createMockSpotifyTrack = (overrides: Partial<SpotifyTrack> = {}): SpotifyTrack => ({
-  id: 'spotify123',
-  name: 'Test Song',
-  artists: [{ name: 'Test Artist', id: 'artist1' }],
-  album: {
-    name: 'Test Album',
-    images: [{ url: 'https://example.com/image.jpg', height: 640, width: 640 }],
-  },
-  ...overrides,
-})
-
-const createMockSongWithMatch = (overrides: Partial<SongWithMatch> = {}): SongWithMatch => ({
-  dbSong: createMockSong(),
-  spotifyMatch: null,
-  similarity: 0,
-  isMatched: false,
-  searching: false,
-  ...overrides,
-})
+import {
+  createMockSong,
+  createMockSpotifyTrack,
+  createMockSongWithMatch,
+} from '@/lib/test-helpers/fixtures'
 
 describe('songsReducer', () => {
   describe('SET_SONGS', () => {
