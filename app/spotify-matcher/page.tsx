@@ -1,8 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef, useReducer } from 'react'
-import { Button } from '@/components/ui/button'
-import { Loader2, Check, ChevronRight } from 'lucide-react'
+import { Loader2, Check } from 'lucide-react'
 import type { Song } from '@/lib/schema'
 import {
   getRandomUnmatchedSong,
@@ -16,7 +15,6 @@ import { SongTableRow } from './components/SongTableRow'
 import { ArtistHeader } from './components/ArtistHeader'
 import { calculateSimilarity } from '@/lib/similarity'
 import {
-  type SongWithMatch,
   shouldSkipSong,
   createInitialSongs,
   getEligibleAutoMatchSongs,
@@ -79,7 +77,7 @@ export default function SpotifyMatcherPage() {
       setError(err instanceof Error ? err.message : 'Unknown error')
       setLoading(false)
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- Only run on mount, searchForMatch is stable
       }, [])
 
   useEffect(() => {
