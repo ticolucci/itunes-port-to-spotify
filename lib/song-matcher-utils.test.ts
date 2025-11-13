@@ -1,6 +1,4 @@
 import { describe, it, expect } from 'vitest'
-import type { Song } from './schema'
-import type { SpotifyTrack } from './spotify'
 import {
   shouldSkipSong,
   hasIncompleteMetadata,
@@ -13,38 +11,11 @@ import {
   getEligibleAutoMatchSongs,
   type SongWithMatch,
 } from './song-matcher-utils'
-
-// Test fixtures
-const createMockSong = (overrides: Partial<Song> = {}): Song => ({
-  id: 1,
-  title: 'Test Song',
-  artist: 'Test Artist',
-  album: 'Test Album',
-  album_artist: null,
-  filename: null,
-  spotify_id: null,
-  ...overrides,
-})
-
-const createMockSpotifyTrack = (overrides: Partial<SpotifyTrack> = {}): SpotifyTrack => ({
-  id: 'spotify123',
-  name: 'Test Song',
-  artists: [{ name: 'Test Artist', id: 'artist1' }],
-  album: {
-    name: 'Test Album',
-    images: [{ url: 'https://example.com/image.jpg', height: 640, width: 640 }],
-  },
-  ...overrides,
-})
-
-const createMockSongWithMatch = (overrides: Partial<SongWithMatch> = {}): SongWithMatch => ({
-  dbSong: createMockSong(),
-  spotifyMatch: createMockSpotifyTrack(),
-  similarity: 90,
-  isMatched: false,
-  searching: false,
-  ...overrides,
-})
+import {
+  createMockSong,
+  createMockSpotifyTrack,
+  createMockSongWithMatch,
+} from '@/lib/test-helpers/fixtures'
 
 describe('shouldSkipSong', () => {
   it('returns true when title is null', () => {
@@ -92,7 +63,10 @@ describe('hasIncompleteMetadata', () => {
 
 describe('isEligibleForAutoMatch', () => {
   it('returns true when all conditions are met', () => {
-    const songWithMatch = createMockSongWithMatch({ similarity: 85 })
+    const songWithMatch = createMockSongWithMatch({
+      spotifyMatch: createMockSpotifyTrack(),
+      similarity: 85,
+    })
     const matchingIds = new Set<number>()
     const processedMatches = new Set<number>()
 
@@ -108,7 +82,10 @@ describe('isEligibleForAutoMatch', () => {
   })
 
   it('returns false when similarity < 80', () => {
-    const songWithMatch = createMockSongWithMatch({ similarity: 75 })
+    const songWithMatch = createMockSongWithMatch({
+      spotifyMatch: createMockSpotifyTrack(),
+      similarity: 75,
+    })
     const matchingIds = new Set<number>()
     const processedMatches = new Set<number>()
 
@@ -116,7 +93,10 @@ describe('isEligibleForAutoMatch', () => {
   })
 
   it('returns false when already matched', () => {
-    const songWithMatch = createMockSongWithMatch({ isMatched: true })
+    const songWithMatch = createMockSongWithMatch({
+      spotifyMatch: createMockSpotifyTrack(),
+      isMatched: true,
+    })
     const matchingIds = new Set<number>()
     const processedMatches = new Set<number>()
 
@@ -124,7 +104,9 @@ describe('isEligibleForAutoMatch', () => {
   })
 
   it('returns false when currently being matched', () => {
-    const songWithMatch = createMockSongWithMatch()
+    const songWithMatch = createMockSongWithMatch({
+      spotifyMatch: createMockSpotifyTrack(),
+    })
     const matchingIds = new Set<number>([songWithMatch.dbSong.id])
     const processedMatches = new Set<number>()
 
@@ -132,7 +114,9 @@ describe('isEligibleForAutoMatch', () => {
   })
 
   it('returns false when already processed', () => {
-    const songWithMatch = createMockSongWithMatch()
+    const songWithMatch = createMockSongWithMatch({
+      spotifyMatch: createMockSpotifyTrack(),
+    })
     const matchingIds = new Set<number>()
     const processedMatches = new Set<number>([songWithMatch.dbSong.id])
 
@@ -239,16 +223,19 @@ describe('getEligibleAutoMatchSongs', () => {
   it('returns only eligible songs', () => {
     const eligible = createMockSongWithMatch({
       dbSong: createMockSong({ id: 1 }),
+      spotifyMatch: createMockSpotifyTrack(),
       similarity: 85,
       isMatched: false,
     })
     const lowSimilarity = createMockSongWithMatch({
       dbSong: createMockSong({ id: 2 }),
+      spotifyMatch: createMockSpotifyTrack(),
       similarity: 70,
       isMatched: false,
     })
     const alreadyMatched = createMockSongWithMatch({
       dbSong: createMockSong({ id: 3 }),
+      spotifyMatch: createMockSpotifyTrack(),
       similarity: 90,
       isMatched: true,
     })
@@ -266,6 +253,7 @@ describe('getEligibleAutoMatchSongs', () => {
   it('excludes songs in matchingIds', () => {
     const song = createMockSongWithMatch({
       dbSong: createMockSong({ id: 1 }),
+      spotifyMatch: createMockSpotifyTrack(),
       similarity: 85,
     })
     const matchingIds = new Set<number>([1])
@@ -278,6 +266,7 @@ describe('getEligibleAutoMatchSongs', () => {
   it('excludes songs in processedMatches', () => {
     const song = createMockSongWithMatch({
       dbSong: createMockSong({ id: 1 }),
+      spotifyMatch: createMockSpotifyTrack(),
       similarity: 85,
     })
     const matchingIds = new Set<number>()
