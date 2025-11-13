@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef, useReducer } from 'react'
 import { Loader2, Check } from 'lucide-react'
 import type { Song } from '@/lib/schema'
+import type { SpotifyTrack } from '@/lib/spotify'
 import {
   getRandomUnmatchedSong,
   getSongsByArtist,

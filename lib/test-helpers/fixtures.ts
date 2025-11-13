@@ -1,6 +1,14 @@
 import type { Song } from '@/lib/schema'
 import type { SpotifyTrack } from '@/lib/spotify'
 import type { SongWithMatch } from '@/lib/song-matcher-utils'
+import { merge } from 'lodash'
+
+/**
+ * Utility type for deep partial - makes all properties and nested properties optional
+ */
+type DeepPartial<T> = T extends object ? {
+  [P in keyof T]?: DeepPartial<T[P]>
+} : T
 
 /**
  * Creates a mock Song object for testing.
@@ -23,11 +31,13 @@ export const createMockSong = (overrides: Partial<Song> = {}): Song => ({
 /**
  * Creates a mock SpotifyTrack object for testing.
  * Matches the structure returned by Spotify API.
+ * Supports deep partial overrides for nested objects like album.
  *
  * @example
  * const track = createMockSpotifyTrack({ id: 'custom_id' })
+ * const track = createMockSpotifyTrack({ album: { name: 'Abbey Road' } }) // images provided by default
  */
-export const createMockSpotifyTrack = (overrides: Partial<SpotifyTrack> = {}): SpotifyTrack => ({
+export const createMockSpotifyTrack = (overrides: DeepPartial<SpotifyTrack> = {}): SpotifyTrack => merge({
   id: 'spotify123',
   name: 'Test Song',
   artists: [{ name: 'Test Artist', id: 'artist1' }],
@@ -35,8 +45,8 @@ export const createMockSpotifyTrack = (overrides: Partial<SpotifyTrack> = {}): S
     name: 'Test Album',
     images: [{ url: 'https://example.com/image.jpg', height: 640, width: 640 }],
   },
-  ...overrides,
-})
+  uri: 'spotify:track:123',
+}, overrides)
 
 /**
  * Creates a mock SongWithMatch object for testing matcher state.
