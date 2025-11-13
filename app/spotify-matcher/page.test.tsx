@@ -353,10 +353,7 @@ describe('SpotifyMatcherPage', () => {
     insert.run('Song Two', 'Test Artist', 'Test Album', null, 'file2.mp3', null)
 
     // Mock Spotify to return exact matches
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    let searchCallCount = 0
     mockSearchSpotifyTracks.mockImplementation(async (params) => {
-      searchCallCount++
       if (params.track === 'Song One') {
         return [{
           id: 'spotify-one',
