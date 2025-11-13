@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import SongsPage from './page'
-import type { Song } from '@/lib/schema'
+import { createMockSongs } from '@/lib/test-helpers/fixtures'
 
 // Mock the Server Action
 vi.mock('@/lib/actions', () => ({
@@ -12,17 +12,6 @@ vi.mock('@/lib/actions', () => ({
 import { fetchSongs } from '@/lib/actions'
 
 const mockFetchSongs = vi.mocked(fetchSongs)
-
-const createMockSongs = (count: number, startId: number = 1): Song[] => {
-  return Array.from({ length: count }, (_, i) => ({
-    id: startId + i,
-    title: `Song ${startId + i}`,
-    artist: `Artist ${(startId + i) % 5}`,
-    album: `Album ${(startId + i) % 3}`,
-    album_artist: `Album Artist ${(startId + i) % 2}`,
-    filename: `file${startId + i}.mp3`,
-  }))
-}
 
 describe('SongsPage', () => {
   beforeEach(() => {
