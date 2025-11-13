@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { fixMetadataWithAI, clearMetadataCache, getCacheStats } from './ai-metadata-fixer'
-import type { Song } from './schema'
+import { createMockSong } from '@/lib/test-helpers/fixtures'
 
 // Mock Groq chat completions create function
 const mockChatCompletionsCreate = vi.fn()
@@ -57,15 +57,13 @@ describe('AI Metadata Fixer', () => {
         })
       )
 
-      const song: Song = {
+      const song = createMockSong({
         id: 1,
         title: ' Hey Jude  ',
         artist: 'The Beatles ',
         album: '  Past Masters ',
-        album_artist: null,
         filename: 'file.mp3',
-        spotify_id: null,
-      }
+      })
 
       const result = await fixMetadataWithAI(song)
 
@@ -95,15 +93,13 @@ describe('AI Metadata Fixer', () => {
         })
       )
 
-      const song: Song = {
+      const song = createMockSong({
         id: 2,
         title: 'Get Lucky',
         artist: 'Daft Punk feat. Pharrell Williams',
         album: 'Random Access Memories',
-        album_artist: null,
         filename: 'file.mp3',
-        spotify_id: null,
-      }
+      })
 
       const result = await fixMetadataWithAI(song)
 
@@ -126,15 +122,13 @@ describe('AI Metadata Fixer', () => {
         })
       )
 
-      const song: Song = {
+      const song = createMockSong({
         id: 3,
         title: null,
         artist: null,
         album: null,
-        album_artist: null,
         filename: 'file.mp3',
-        spotify_id: null,
-      }
+      })
 
       const result = await fixMetadataWithAI(song)
 
@@ -153,15 +147,13 @@ describe('AI Metadata Fixer', () => {
         })
       )
 
-      const song: Song = {
+      const song = createMockSong({
         id: 4,
         title: 'Track',
         artist: 'Artist',
         album: 'Album',
-        album_artist: null,
         filename: 'file.mp3',
-        spotify_id: null,
-      }
+      })
 
       // First call
       await fixMetadataWithAI(song)
@@ -179,15 +171,13 @@ describe('AI Metadata Fixer', () => {
     it('should return null on API error', async () => {
       mockChatCompletionsCreate.mockRejectedValue(new Error('API Error'))
 
-      const song: Song = {
+      const song = createMockSong({
         id: 5,
         title: 'Track',
         artist: 'Artist',
         album: 'Album',
-        album_artist: null,
         filename: 'file.mp3',
-        spotify_id: null,
-      }
+      })
 
       const result = await fixMetadataWithAI(song)
       expect(result).toBeNull()
@@ -196,15 +186,13 @@ describe('AI Metadata Fixer', () => {
     it('should return null on invalid JSON response', async () => {
       mockGroqResponse('invalid json {{{')
 
-      const song: Song = {
+      const song = createMockSong({
         id: 6,
         title: 'Track',
         artist: 'Artist',
         album: 'Album',
-        album_artist: null,
         filename: 'file.mp3',
-        spotify_id: null,
-      }
+      })
 
       const result = await fixMetadataWithAI(song)
       expect(result).toBeNull()
@@ -219,15 +207,13 @@ describe('AI Metadata Fixer', () => {
         })
       )
 
-      const song: Song = {
+      const song = createMockSong({
         id: 7,
         title: 'Track',
         artist: 'Artist',
         album: 'Album',
-        album_artist: null,
         filename: 'file.mp3',
-        spotify_id: null,
-      }
+      })
 
       const result = await fixMetadataWithAI(song)
       expect(result).toBeNull()
@@ -240,15 +226,13 @@ describe('AI Metadata Fixer', () => {
       // Also clear cache to ensure fresh groq client initialization
       clearMetadataCache()
 
-      const song: Song = {
+      const song = createMockSong({
         id: 8,
         title: 'Track',
         artist: 'Artist',
         album: 'Album',
-        album_artist: null,
         filename: 'file.mp3',
-        spotify_id: null,
-      }
+      })
 
       // The function catches the error and returns null for graceful degradation
       const result = await fixMetadataWithAI(song)
@@ -266,15 +250,13 @@ describe('AI Metadata Fixer', () => {
         ],
       } as any)
 
-      const song: Song = {
+      const song = createMockSong({
         id: 9,
         title: 'Track',
         artist: 'Artist',
         album: 'Album',
-        album_artist: null,
         filename: 'file.mp3',
-        spotify_id: null,
-      }
+      })
 
       const result = await fixMetadataWithAI(song)
       expect(result).toBeNull()
@@ -293,15 +275,13 @@ describe('AI Metadata Fixer', () => {
         })
       )
 
-      const song: Song = {
+      const song = createMockSong({
         id: 10,
         title: 'Track',
         artist: 'Artist',
         album: 'Album',
-        album_artist: null,
         filename: 'file.mp3',
-        spotify_id: null,
-      }
+      })
 
       await fixMetadataWithAI(song)
       expect(getCacheStats().size).toBe(1)
@@ -321,25 +301,21 @@ describe('AI Metadata Fixer', () => {
         })
       )
 
-      const song1: Song = {
+      const song1 = createMockSong({
         id: 11,
         title: 'Track1',
         artist: 'Artist1',
         album: 'Album1',
-        album_artist: null,
         filename: 'file1.mp3',
-        spotify_id: null,
-      }
+      })
 
-      const song2: Song = {
+      const song2 = createMockSong({
         id: 12,
         title: 'Track2',
         artist: 'Artist2',
         album: 'Album2',
-        album_artist: null,
         filename: 'file2.mp3',
-        spotify_id: null,
-      }
+      })
 
       await fixMetadataWithAI(song1)
       await fixMetadataWithAI(song2)
