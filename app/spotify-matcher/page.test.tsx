@@ -21,6 +21,7 @@ vi.mock('@/lib/spotify', () => ({
 
 import { searchSpotifyTracks } from '@/lib/spotify'
 import SpotifyMatcherPage from './page'
+import { createMockSpotifyTrack } from '@/lib/test-helpers/fixtures'
 
 const mockSearchSpotifyTracks = vi.mocked(searchSpotifyTracks)
 
@@ -60,16 +61,10 @@ describe('SpotifyMatcherPage', () => {
 
     // Mock Spotify search to return matches
     mockSearchSpotifyTracks.mockResolvedValue([
-      {
-        id: 'spotify123',
+      createMockSpotifyTrack({
         name: 'Come Together',
         artists: [{ name: 'The Beatles' }],
-        album: {
-          name: 'Abbey Road',
-          images: [{ url: 'https://example.com/cover.jpg', height: 300, width: 300 }],
-        },
-        uri: 'spotify:track:123',
-      },
+      })
     ])
 
     render(<SpotifyMatcherPage />)
@@ -109,16 +104,13 @@ describe('SpotifyMatcherPage', () => {
 
     // Mock Spotify search to return potential matches despite incomplete metadata
     mockSearchSpotifyTracks.mockResolvedValue([
-      {
-        id: 'spotify456',
+      createMockSpotifyTrack({
         name: 'Mystery Track',
         artists: [{ name: 'Unknown Artist' }],
         album: {
-          name: 'Unknown Album',
-          images: [{ url: 'https://example.com/cover.jpg', height: 300, width: 300 }],
+          name: 'Unknown Album'
         },
-        uri: 'spotify:track:456',
-      },
+      },)
     ])
 
     // Should render without throwing errors

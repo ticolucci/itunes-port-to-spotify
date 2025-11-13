@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import type { Song } from '@/lib/schema'
 import {
   shouldSkipSong,
   hasIncompleteMetadata,
