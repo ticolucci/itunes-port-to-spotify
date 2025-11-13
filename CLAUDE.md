@@ -12,10 +12,6 @@ This is a TypeScript/Next.js project that ports an iTunes music library to Spoti
 ```bash
 # Install dependencies
 npm install
-
-# Setup Spotify API credentials (required for matching features)
-cp .env.example .env.local
-# Then edit .env.local with your Spotify API credentials from https://developer.spotify.com/dashboard
 ```
 
 ### Next.js Development
@@ -267,6 +263,197 @@ This project is configured for deployment on Vercel. See `VERCEL_SETUP.md` for d
 - `SPOTIFY_CLIENT_SECRET` - Spotify API credentials
 - `TURSO_DATABASE_URL` - Production database URL
 - `TURSO_AUTH_TOKEN` - Production database auth token
+
+## Development Workflow
+
+### Test-Driven Development (TDD) - REQUIRED
+
+**For ALL new features, Claude MUST follow strict TDD:**
+
+1. **Write failing tests first** - Before any implementation code
+2. **Run tests to confirm failure** - Verify test is meaningful
+3. **Implement minimal code** - Just enough to make test pass
+4. **Run tests to confirm pass** - Verify implementation works
+5. **Suggest Refactor opportunities** - Improve code while keeping tests green
+6. **Commit with tests** - Each feature includes its tests
+
+**Exception:** User explicitly says "skip TDD" or "no tests needed" for specific work.
+
+**Example TDD workflow:**
+```bash
+# 1. Write test
+# 2. Run: npm test -- path/to/test.ts (should FAIL)
+# 3. Implement feature
+# 4. Run: npm test -- path/to/test.ts (should PASS)
+# 5. Run: npm test (all tests should PASS)
+# 6. Think about potential refactorings in the code base, given the added code. Suggest to the user if they want to implement any of those.
+# 7. Commit with message including test coverage
+```
+
+### Refactoring Workflow - REQUIRED
+
+**For ALL refactoring tasks, Claude MUST:**
+
+1. **Analyze current code** - Identify refactoring opportunities
+2. **Create refactoring plan** - Document proposed changes
+3. **Present plan to user** - Wait for approval before proceeding
+4. **Execute incrementally** - One refactoring at a time
+5. **Test after each change** - Run `npm test` to verify no regression
+6. **Commit after each refactoring** - Keep git history clean and logical
+
+**Refactoring commit format:**
+```
+Refactor: <what was extracted/changed>
+
+<Brief description of changes>
+
+Changes:
+- <Specific change 1>
+- <Specific change 2>
+
+Benefits:
+- <Benefit 1>
+- <Benefit 2>
+```
+
+### Code Organization Principles
+
+**Lessons from app/spotify-matcher/page.tsx refactoring:**
+
+1. **Extract utility functions** - Pure functions go to `lib/` with tests
+2. **Extract state management** - Reducers go to `state/` subdirectory with tests
+3. **Extract components** - Large JSX blocks (>30 lines) become separate components
+4. **Avoid inline objects** - Use factory functions for test fixtures
+5. **Single responsibility** - Files should have one clear purpose
+
+**File size targets:**
+- Page components: ~400 lines or less
+- Utility modules: ~100 lines or less
+- Components: ~150 lines or less
+- Test files: Unlimited (comprehensive coverage preferred)
+
+**Module structure:**
+```
+feature/
+├── page.tsx                 # Main page (orchestrator)
+├── state/
+│   ├── reducer.ts          # State management
+│   └── reducer.test.ts     # Reducer tests
+├── components/
+│   ├── ComponentA.tsx      # UI component
+│   └── ComponentB.tsx      # UI component
+└── hooks/
+    ├── useFeature.ts       # Custom hook
+    └── useFeature.test.ts  # Hook tests
+```
+
+### Test Organization
+
+**Shared test helpers:**
+- Location: `lib/test-helpers/`
+- Purpose: Eliminate duplicate mock factories
+- See: `TEST_REFACTORING_SUGGESTIONS.md` for consolidation plan
+
+**Test file structure:**
+```typescript
+// 1. Imports
+import { describe, it, expect } from 'vitest'
+import { functionToTest } from './module'
+import { createMockSong } from '@/lib/test-helpers/fixtures'
+
+// 2. Test fixtures (use shared factories when possible)
+// Only create local fixtures if truly unique to this test
+
+// 3. Test suites
+describe('Feature', () => {
+  describe('specific behavior', () => {
+    it('does something specific', () => {
+      // Arrange
+      const input = createMockSong({ title: 'Test' })
+
+      // Act
+      const result = functionToTest(input)
+
+      // Assert
+      expect(result).toBe(expected)
+    })
+  })
+})
+```
+
+**Test factory guidelines:**
+- Use shared factories from `lib/test-helpers/fixtures.ts`
+- Only create inline objects when testing edge cases
+- Override defaults using spread operator: `createMockSong({ title: 'Custom' })`
+- See `TEST_REFACTORING_SUGGESTIONS.md` for detailed patterns
+
+### Git Commit Strategy
+
+**Incremental commits preferred:**
+- One logical change per commit
+- Tests should pass after each commit
+- Clear, descriptive commit messages
+- Include emoji when using Claude Code: 🤖
+
+**Commit message format:**
+```
+<Type>: <Short description>
+
+<Detailed description of changes>
+
+<List of specific changes>
+- Change 1
+- Change 2
+
+<Benefits or context>
+- Benefit 1
+- Benefit 2
+
+All <N> tests passing
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+```
+
+**Commit types:**
+- `feat:` - New feature
+- `fix:` - Bug fix
+- `refactor:` - Code restructuring (no behavior change)
+- `test:` - Adding or updating tests
+- `docs:` - Documentation changes
+- `chore:` - Build/tooling changes
+
+### Example Session Patterns
+
+**Adding a new feature (TDD):**
+```
+1. User: "Add function to calculate match confidence"
+2. Claude: "I'll use TDD. First, writing tests..."
+3. Claude: Creates test file with failing tests
+4. Claude: Runs tests (shows failures)
+5. Claude: Implements function
+6. Claude: Runs tests (shows passes)
+7. Claude: Think about refactoring opportunities
+8. Claude: Present the plan and ask for input
+9. Claude: Commits with test coverage note
+```
+
+**Refactoring existing code:**
+```
+1. User: "Refactor the matcher page"
+2. Claude: "I'll analyze and create a refactoring plan..."
+3. Claude: Presents 5 refactoring opportunities
+4. User: "Approve all"
+5. Claude: Executes one at a time, testing after each
+6. Claude: Commits after each successful refactoring
+7. Claude: Provides summary of all changes
+```
+
+**When NOT to follow these patterns:**
+- User explicitly requests different workflow
+- Emergency hotfixes (but add tests after)
+- Experimental/prototype code (but document as such)
 
 ## Future Work
 
