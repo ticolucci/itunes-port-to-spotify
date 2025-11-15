@@ -301,7 +301,9 @@ export async function getNextUnmatchedAlbum(): Promise<
 }
 
 /**
- * Search Spotify for a specific song
+ * Search Spotify for a specific song using track-only query.
+ * Uses relaxed search (title only) and relies on enhanced similarity
+ * algorithm to rank results by artist/album matching.
  */
 export async function searchSpotifyForSong(
   artist: string | null,
@@ -309,9 +311,9 @@ export async function searchSpotifyForSong(
   track: string | null
 ): Promise<ActionResult<{ tracks: SpotifyTrack[] }>> {
   try {
+    // Use track-only search for maximum results
+    // Enhanced similarity will filter/rank by artist and album
     const tracks = await searchSpotifyTracks({
-      artist: artist || undefined,
-      album: album || undefined,
       track: track || undefined
     })
 
