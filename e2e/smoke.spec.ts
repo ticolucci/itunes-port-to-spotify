@@ -5,10 +5,7 @@ import { test, expect } from '@playwright/test';
  * Tests the complete user journey from home page to matching a song
  */
 test.describe('Spotify Matcher Smoke Test', () => {
-  let testSongId: number;
-  const testSongFilename = 'test_jacob_taylor_carolina_e2e.m4a';
-
-  test.beforeEach(async ({ page, request, baseURL }) => {
+  test.beforeEach(async ({ page }) => {
     // Intercept all requests to add Vercel protection bypass header
     // This ensures ALL requests (including Server Actions) have the bypass header
     if (process.env.VERCEL_AUTOMATION_BYPASS_SECRET) {
@@ -20,7 +17,9 @@ test.describe('Spotify Matcher Smoke Test', () => {
         await route.continue({ headers });
       });
     }
+  });
 
+  test('should navigate from home to matcher and match a song', async ({ page, request, baseURL }) => {
     // Prepare headers for Vercel protection bypass
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
@@ -38,7 +37,7 @@ test.describe('Spotify Matcher Smoke Test', () => {
         artist: 'Jacob Taylor',
         album: 'The Road',
         album_artist: 'Jacob Taylor',
-        filename: testSongFilename,
+        filename: 'test_jacob_taylor_carolina_e2e.m4a',
       },
     });
 
@@ -50,30 +49,10 @@ test.describe('Spotify Matcher Smoke Test', () => {
 
     expect(response.ok()).toBeTruthy();
     const song = await response.json();
-    testSongId = song.id;
+    const testSongId = song.id;
     console.log(`Created test song with ID: ${testSongId}`);
-  });
 
-  test.afterEach(async ({ request, baseURL }) => {
-    // Prepare headers for Vercel protection bypass
-    const headers: Record<string, string> = {};
-
-    if (process.env.VERCEL_AUTOMATION_BYPASS_SECRET) {
-      headers['x-vercel-protection-bypass'] = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
-    }
-
-    // Clean up test song
-    if (testSongId) {
-      const response = await request.delete(
-        `${baseURL}/api/test/library-song?id=${testSongId}`,
-        { headers }
-      );
-      expect(response.ok()).toBeTruthy();
-      console.log(`Deleted test song with ID: ${testSongId}`);
-    }
-  });
-
-  test('should navigate from home to matcher and match a song', async ({ page }) => {
+    try {
     // 1. Navigate to home page
     await page.goto('/');
     await expect(page.locator('h1')).toContainText('iTunes to Spotify');
@@ -108,31 +87,71 @@ test.describe('Spotify Matcher Smoke Test', () => {
     // 8. Verify the match button shows loading state
     await expect(matchButton).toBeDisabled();
 
-    // 9. Wait for the review card to disappear or move to next song
-    // (The card should either disappear or show a different song)
-    await expect(page.locator('[data-testid="review-card"]')).not.toContainText(
-      'Carolina',
-      { timeout: 10000 }
-    );
-
-    // 10. Success! The song was matched and we moved on
-    console.log('Successfully matched song and moved to next review');
-  });
-
-  test('should display correct UI elements on matcher page', async ({ page }) => {
-    // Navigate to matcher with test song
-    await page.goto(`/spotify-matcher?test_song_id=${testSongId}`);
-
-    // Verify page title
-    await expect(page.locator('h1')).toContainText('Spotify Matcher');
-
-    // Verify review card appears
-    await expect(page.locator('[data-testid="review-card"]')).toBeVisible({
-      timeout: 15000,
+    // 9. Wait for the review to complete (card disappears, completion message appears)
+    await expect(page.locator('text=Review Complete!')).toBeVisible({
+      timeout: 10000,
     });
 
-    // Verify both action buttons are present
-    await expect(page.locator('[data-testid="match-button"]')).toBeVisible();
-    await expect(page.locator('[data-testid="skip-button"]')).toBeVisible();
+      // 10. Success! The song was matched
+      console.log('Successfully matched song');
+    } finally {
+      // Clean up test song
+      await request.delete(
+        `${baseURL}/api/test/library-song?id=${testSongId}`,
+        { headers }
+      );
+      console.log(`Deleted test song with ID: ${testSongId}`);
+    }
+  });
+
+  test('should display correct UI elements on matcher page', async ({ page, request, baseURL }) => {
+    // Create a different test song for this test to avoid interference
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+
+    if (process.env.VERCEL_AUTOMATION_BYPASS_SECRET) {
+      headers['x-vercel-protection-bypass'] = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
+    }
+
+    const response = await request.post(`${baseURL}/api/test/library-song`, {
+      headers,
+      data: {
+        title: 'Yesterday',
+        artist: 'The Beatles',
+        album: 'Help!',
+        album_artist: 'The Beatles',
+        filename: 'test_yesterday_ui.m4a',
+      },
+    });
+
+    expect(response.ok()).toBeTruthy();
+    const song = await response.json();
+    const uiTestSongId = song.id;
+    console.log(`Created UI test song with ID: ${uiTestSongId}`);
+
+    try {
+      // Navigate to matcher with test song
+      await page.goto(`/spotify-matcher?test_song_id=${uiTestSongId}`);
+
+      // Verify page title
+      await expect(page.locator('h1')).toContainText('Spotify Matcher');
+
+      // Verify review card appears
+      await expect(page.locator('[data-testid="review-card"]')).toBeVisible({
+        timeout: 15000,
+      });
+
+      // Verify both action buttons are present
+      await expect(page.locator('[data-testid="match-button"]')).toBeVisible();
+      await expect(page.locator('[data-testid="skip-button"]')).toBeVisible();
+    } finally {
+      // Clean up the UI test song
+      await request.delete(
+        `${baseURL}/api/test/library-song?id=${uiTestSongId}`,
+        { headers }
+      );
+      console.log(`Deleted UI test song with ID: ${uiTestSongId}`);
+    }
   });
 });
