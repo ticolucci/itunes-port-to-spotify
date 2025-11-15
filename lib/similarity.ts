@@ -6,7 +6,7 @@
  * @param spotifyTitle - The title from Spotify search results
  * @returns Similarity percentage (0-100)
  */
-export function calculateSimilarity(localTitle: string | null, spotifyTitle: string): number {
+export function calculateSimilarity(localTitle: string | null, spotifyTitle: string | null): number {
   // Handle null/undefined values
   if (!localTitle || !spotifyTitle) return 0
 
