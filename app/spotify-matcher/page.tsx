@@ -194,14 +194,6 @@ export default function SpotifyMatcherPage() {
     dispatchSongs({ type: 'SET_SEARCHING', payload: { songId: song.id, searching: true } })
 
     try {
-      // DEBUG: Log search params
-      console.log('[SPOTIFY SEARCH]', {
-        artist: song.artist,
-        album: song.album,
-        title: song.title,
-        query: `track:${song.title}` // Now using track-only search
-      })
-
       const result = await searchSpotifyForSong(song.artist, song.album, song.title)
 
       if (result.success && result.tracks.length > 0) {
@@ -226,7 +218,7 @@ export default function SpotifyMatcherPage() {
         tracksWithSimilarity.sort((a, b) => b.similarity - a.similarity)
 
         // DEBUG: Log search results with similarity scores
-        console.log('[SPOTIFY RESULTS]', {
+        console.log('[SPOTIFY RESULTS]', JSON.stringify({
           totalTracks: tracksWithSimilarity.length,
           top5: tracksWithSimilarity.slice(0, 5).map(t => ({
             name: t.track.name,
@@ -234,7 +226,7 @@ export default function SpotifyMatcherPage() {
             album: t.track.album.name,
             similarity: t.similarity
           }))
-        })
+        }))
 
         // Update debug UI
         setDebugInfo({
@@ -252,7 +244,7 @@ export default function SpotifyMatcherPage() {
         const similarity = tracksWithSimilarity[0].similarity
 
         // DEBUG: Log best match
-        console.log('[BEST MATCH]', {
+        console.log('[BEST MATCH]', JSON.stringify({
           local: { artist: song.artist, title: song.title, album: song.album },
           spotify: {
             artist: bestMatch.artists[0]?.name,
@@ -260,7 +252,7 @@ export default function SpotifyMatcherPage() {
             album: bestMatch.album.name
           },
           similarity
-        })
+        }))
 
         // Try auto-match (will only succeed if enabled and similarity >= 80%)
         const wasAutoMatched = await attemptAutoMatchAndUpdateState(song.id, bestMatch, similarity )
@@ -273,11 +265,11 @@ export default function SpotifyMatcherPage() {
           })
         }
       } else {
-        console.log('[NO MATCH]', { songId: song.id, artist: song.artist, title: song.title })
+        console.log('[NO MATCH]', JSON.stringify({ songId: song.id, artist: song.artist, title: song.title }))
         dispatchSongs({ type: 'SET_SEARCHING', payload: { songId: song.id, searching: false } })
       }
     } catch (err) {
-      console.error('Error searching for match:', err)
+      console.error('Error searching for match:', JSON.stringify(err))
       dispatchSongs({ type: 'SET_SEARCHING', payload: { songId: song.id, searching: false } })
     }
   }
