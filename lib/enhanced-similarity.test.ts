@@ -115,28 +115,28 @@ describe("calculateEnhancedSimilarity", () => {
 
   it("Missing artist vs real artist — title and album match ➡️ (very likely same)", () => {
     expect(calculateEnhancedSimilarity(
-      { artist: "null", title: "Test", album: "Album" },
+      { artist: null, title: "Test", album: "Album" },
       { artist: "Artist", title: "Test", album: "Album" }
     )).toSatisfy((n: number) => n >= 80 && n <= 90);
   });
 
   it("Both missing artist, title + album match", () => {
     expect(calculateEnhancedSimilarity(
-      { artist: "null", title: "Test", album: "Album" },
-      { artist: "null", title: "Test", album: "Album" }
+      { artist: null, title: "Test", album: "Album" },
+      { artist: null, title: "Test", album: "Album" }
     )).toSatisfy((n: number) => n >= 90 && n <= 95);
   });
 
   it("Missing title vs real title → big risk", () => {
     expect(calculateEnhancedSimilarity(
-      { artist: "Artist", title: "null", album: "Album" },
+      { artist: "Artist", title: null, album: "Album" },
       { artist: "Artist", title: "Test", album: "Album" }
     )).toSatisfy((n: number) => n >= 20 && n <= 30);
   });
 
   it("Missing album vs real album → not a big issue", () => {
     expect(calculateEnhancedSimilarity(
-      { artist: "Artist", title: "Song", album: "null" },
+      { artist: "Artist", title: "Song", album: null },
       { artist: "Artist", title: "Song", album: "Album" }
     )).toSatisfy((n: number) => n >= 90 && n <= 100);
   });
