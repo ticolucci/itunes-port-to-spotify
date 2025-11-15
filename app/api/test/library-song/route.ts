@@ -5,12 +5,11 @@ import { NextRequest, NextResponse } from 'next/server';
 
 /**
  * Test API endpoint for managing library songs in E2E tests
- * Only available in non-production environments
+ *
+ * Safety: All songs created have filenames prefixed with "test-"
+ * and only "test-" prefixed songs can be deleted. This allows
+ * safe use in production preview environments.
  */
-
-// Only allow in non-production environments
-const isTestEnvironment = process.env.NODE_ENV !== 'production' ||
-                          process.env.ENABLE_TEST_API === 'true';
 
 /**
  * POST /api/test/library-song
@@ -22,25 +21,27 @@ const isTestEnvironment = process.env.NODE_ENV !== 'production' ||
  *   artist: string
  *   album: string
  *   album_artist?: string
- *   filename?: string
+ *   filename?: string (will be prefixed with "test-" if not already)
  *   spotify_id?: string | null
  * }
  */
 export async function POST(request: NextRequest) {
-  if (!isTestEnvironment) {
-    return NextResponse.json({ error: 'Not available' }, { status: 404 });
-  }
-
   try {
     const body = await request.json();
     const db = getDatabase();
+
+    // Ensure filename always has "test-" prefix for safety
+    let filename = body.filename || `test_${Date.now()}.m4a`;
+    if (!filename.startsWith('test-') && !filename.startsWith('test_')) {
+      filename = `test-${filename}`;
+    }
 
     const [song] = await db.insert(songs).values({
       title: body.title,
       artist: body.artist,
       album: body.album,
       album_artist: body.album_artist || body.artist,
-      filename: body.filename || `test_${Date.now()}.m4a`,
+      filename,
       spotify_id: body.spotify_id || null,
     }).returning();
 
@@ -59,27 +60,58 @@ export async function POST(request: NextRequest) {
  * or
  * DELETE /api/test/library-song?filename=test_file.m4a
  * Deletes a test song from the database
+ *
+ * Safety: Only deletes songs with "test-" or "test_" prefixed filenames
  */
 export async function DELETE(request: NextRequest) {
-  if (!isTestEnvironment) {
-    return NextResponse.json({ error: 'Not available' }, { status: 404 });
-  }
-
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
     const filename = searchParams.get('filename');
     const db = getDatabase();
 
-    if (id) {
-      await db.delete(songs).where(eq(songs.id, parseInt(id)));
-    } else if (filename) {
-      await db.delete(songs).where(eq(songs.filename, filename));
-    } else {
+    if (!id && !filename) {
       return NextResponse.json(
         { error: 'Must provide either id or filename' },
         { status: 400 }
       );
+    }
+
+    // Only allow deletion of test songs (filename starts with "test-" or "test_")
+    if (id) {
+      // First verify the song has a test filename
+      const songToDelete = await db
+        .select()
+        .from(songs)
+        .where(eq(songs.id, parseInt(id)))
+        .limit(1);
+
+      if (songToDelete.length === 0) {
+        return NextResponse.json(
+          { error: 'Song not found' },
+          { status: 404 }
+        );
+      }
+
+      const songFilename = songToDelete[0].filename;
+      if (!songFilename?.startsWith('test-') && !songFilename?.startsWith('test_')) {
+        return NextResponse.json(
+          { error: 'Can only delete test songs (filename must start with "test-" or "test_")' },
+          { status: 403 }
+        );
+      }
+
+      await db.delete(songs).where(eq(songs.id, parseInt(id)));
+    } else if (filename) {
+      // Verify filename has test prefix
+      if (!filename.startsWith('test-') && !filename.startsWith('test_')) {
+        return NextResponse.json(
+          { error: 'Can only delete test songs (filename must start with "test-" or "test_")' },
+          { status: 403 }
+        );
+      }
+
+      await db.delete(songs).where(eq(songs.filename, filename));
     }
 
     return NextResponse.json({ success: true });
