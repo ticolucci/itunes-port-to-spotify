@@ -33,7 +33,7 @@ export function ReviewCard({
   }
 
   return (
-    <div className="mb-8 p-8 border-2 rounded-xl bg-gradient-to-br from-muted/50 to-muted/30 shadow-lg">
+    <div data-testid="review-card" className="mb-8 p-8 border-2 rounded-xl bg-gradient-to-br from-muted/50 to-muted/30 shadow-lg">
       <div className="text-center mb-6">
         <div className="inline-block px-3 py-1 bg-primary/10 text-primary rounded-full text-sm font-medium mb-2">
           Quick Review {currentIndex + 1} / {totalCount}
@@ -51,8 +51,8 @@ export function ReviewCard({
               <Music className="h-10 w-10 text-muted-foreground" />
             </div>
             <div>
-              <p className="font-bold text-lg">{currentReview.dbSong.title || <span className="italic text-muted-foreground">(No Title)</span>}</p>
-              <p className="text-muted-foreground">
+              <p data-testid="library-song-title" className="font-bold text-lg">{currentReview.dbSong.title || <span className="italic text-muted-foreground">(No Title)</span>}</p>
+              <p data-testid="library-song-artist" className="text-muted-foreground">
                 {currentReview.dbSong.artist || <span className="italic">(No Artist)</span>}
               </p>
               <p className="text-sm text-muted-foreground">
@@ -111,6 +111,7 @@ export function ReviewCard({
       {/* Action Buttons */}
       <div className="flex justify-center gap-6">
         <Button
+          data-testid="skip-button"
           variant="outline"
           size="lg"
           onClick={onSkip}
@@ -120,6 +121,7 @@ export function ReviewCard({
           Skip
         </Button>
         <Button
+          data-testid="match-button"
           size="lg"
           onClick={() =>
             onMatch(currentReview.dbSong.id, currentReview.spotifyMatch!.id)
