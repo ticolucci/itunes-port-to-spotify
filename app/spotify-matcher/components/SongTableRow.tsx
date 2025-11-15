@@ -1,8 +1,9 @@
 import { Button } from '@/components/ui/button'
-import { Loader2, Check, ChevronRight, Music, Undo2 } from 'lucide-react'
+import { Loader2, Check, ChevronRight, Music, Undo2, ExternalLink } from 'lucide-react'
 import type { SongWithMatch } from '@/lib/song-matcher-utils'
 import { hasIncompleteMetadata } from '@/lib/song-matcher-utils'
 import { AISuggestion } from '../AISuggestion'
+import Link from 'next/link'
 
 interface SongTableRowProps {
   songWithMatch: SongWithMatch
@@ -104,7 +105,17 @@ export function SongTableRow({ songWithMatch, isMatching, onMatch, onUndo }: Son
       </div>
 
       {/* Action Button */}
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        <Button
+          variant="ghost"
+          size="sm"
+          asChild
+          className="text-muted-foreground hover:text-foreground"
+        >
+          <Link href={`/spotify-matcher?songId=${songWithMatch.dbSong.id}`}>
+            <ExternalLink className="h-4 w-4" />
+          </Link>
+        </Button>
         {songWithMatch.isMatched ? (
           <Button
             variant="ghost"
