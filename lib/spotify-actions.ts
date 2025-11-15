@@ -59,7 +59,7 @@ export async function getNextUnmatchedSong(): Promise<
 
 /**
  * Get a random song without a spotify_id
- * @param testSongId - Optional song ID to fetch for E2E testing (only works when ENABLE_TEST_API=true)
+ * @param testSongId - Optional song ID to fetch for E2E testing (useful for deterministic tests)
  */
 export async function getRandomUnmatchedSong(
   testSongId?: number
@@ -70,7 +70,7 @@ export async function getRandomUnmatchedSong(
     const db = getDatabase()
 
     // Allow tests to request a specific song by ID
-    if (testSongId && process.env.ENABLE_TEST_API === 'true') {
+    if (testSongId) {
       const result = await db
         .select()
         .from(songsTable)
