@@ -14,7 +14,6 @@ import {
 import { ReviewCard } from './ReviewCard'
 import { SongTableRow } from './components/SongTableRow'
 import { ArtistHeader } from './components/ArtistHeader'
-import { calculateSimilarity } from '@/lib/similarity'
 import { calculateEnhancedSimilarity } from '@/lib/enhanced-similarity'
 import {
   shouldSkipSong,

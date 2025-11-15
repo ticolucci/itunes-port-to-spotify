@@ -1,4 +1,4 @@
-export default {
+const config = {
   schema: "./lib/schema.ts",
   out: "./drizzle/migrations",
   dialect: "sqlite",
@@ -10,3 +10,5 @@ export default {
   verbose: true,
   strict: true,
 };
+
+export default config;
