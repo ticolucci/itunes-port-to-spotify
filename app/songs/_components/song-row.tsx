@@ -1,8 +1,9 @@
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { TableCell, TableRow } from "@/components/ui/table";
-import { Search, Trash2, AlertCircle } from "lucide-react";
+import { Search, Trash2, AlertCircle, Music } from "lucide-react";
 import type { Song } from "@/lib/schema";
+import Link from "next/link";
 
 interface SongRowProps {
   song: Song;
@@ -49,6 +50,11 @@ export function SongRow({
       </TableCell>
       <TableCell className="text-right">
         <div className="flex justify-end gap-2">
+          <Button variant="outline" size="sm" asChild>
+            <Link href={`/spotify-matcher?songId=${song.id}`}>
+              <Music className="h-4 w-4" />
+            </Link>
+          </Button>
           <Button variant="outline" size="sm" onClick={() => onSearch(song)}>
             <Search className="h-4 w-4" />
           </Button>
