@@ -327,6 +327,7 @@ jobs:
         env:
           PLAYWRIGHT_TEST_BASE_URL: ${{ steps.get-preview-url.outputs.preview_url }}
           ENABLE_TEST_API: 'true'
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         run: npm run test:e2e
 
       - name: Upload Playwright Report

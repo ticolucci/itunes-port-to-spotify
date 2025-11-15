@@ -34,6 +34,13 @@ export default defineConfig({
 
     // Video on first retry
     video: 'retain-on-failure',
+
+    // Extra HTTP headers for Vercel protection bypass
+    extraHTTPHeaders: process.env.VERCEL_AUTOMATION_BYPASS_SECRET
+      ? {
+          'x-vercel-protection-bypass': process.env.VERCEL_AUTOMATION_BYPASS_SECRET,
+        }
+      : {},
   },
 
   // Configure projects for major browsers

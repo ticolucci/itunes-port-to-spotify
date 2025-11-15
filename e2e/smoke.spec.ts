@@ -9,8 +9,18 @@ test.describe('Spotify Matcher Smoke Test', () => {
   const testSongFilename = 'test_jacob_taylor_carolina_e2e.m4a';
 
   test.beforeEach(async ({ request, baseURL }) => {
+    // Prepare headers for Vercel protection bypass
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+
+    if (process.env.VERCEL_AUTOMATION_BYPASS_SECRET) {
+      headers['x-vercel-protection-bypass'] = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
+    }
+
     // Create test song in database
     const response = await request.post(`${baseURL}/api/test/library-song`, {
+      headers,
       data: {
         title: 'Carolina',
         artist: 'Jacob Taylor',
@@ -20,6 +30,12 @@ test.describe('Spotify Matcher Smoke Test', () => {
       },
     });
 
+    if (!response.ok()) {
+      const errorText = await response.text();
+      console.error(`Failed to create test song: ${response.status()} ${response.statusText()}`);
+      console.error(`Response body: ${errorText}`);
+    }
+
     expect(response.ok()).toBeTruthy();
     const song = await response.json();
     testSongId = song.id;
@@ -27,10 +43,18 @@ test.describe('Spotify Matcher Smoke Test', () => {
   });
 
   test.afterEach(async ({ request, baseURL }) => {
+    // Prepare headers for Vercel protection bypass
+    const headers: Record<string, string> = {};
+
+    if (process.env.VERCEL_AUTOMATION_BYPASS_SECRET) {
+      headers['x-vercel-protection-bypass'] = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
+    }
+
     // Clean up test song
     if (testSongId) {
       const response = await request.delete(
-        `${baseURL}/api/test/library-song?id=${testSongId}`
+        `${baseURL}/api/test/library-song?id=${testSongId}`,
+        { headers }
       );
       expect(response.ok()).toBeTruthy();
       console.log(`Deleted test song with ID: ${testSongId}`);
