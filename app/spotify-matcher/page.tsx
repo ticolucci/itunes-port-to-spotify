@@ -22,6 +22,12 @@ import {
 } from '@/lib/song-matcher-utils'
 import { songsReducer } from './state/songsReducer'
 
+interface DebugInfo {
+  query: string
+  trackCount: number
+  topResults: Array<{ name: string; artist: string; album: string }>
+}
+
 export default function SpotifyMatcherPage() {
   const [currentArtist, setCurrentArtist] = useState<string | null>(null)
   const [songsWithMatches, dispatchSongs] = useReducer(songsReducer, [])
@@ -32,6 +38,7 @@ export default function SpotifyMatcherPage() {
   const [autoMatchEnabled, setAutoMatchEnabled] = useState(false)
   const processedAutoMatches = useRef<Set<number>>(new Set())
   const autoMatchInProgress = useRef(false)
+  const [debugInfo, setDebugInfo] = useState<DebugInfo | null>(null)
 
   const loadRandomArtist = useCallback(async () => {
     try {
@@ -187,12 +194,46 @@ export default function SpotifyMatcherPage() {
     dispatchSongs({ type: 'SET_SEARCHING', payload: { songId: song.id, searching: true } })
 
     try {
+      // DEBUG: Log search params
+      console.log('[SPOTIFY SEARCH]', {
+        artist: song.artist,
+        album: song.album,
+        title: song.title,
+        query: `artist:${song.artist} album:${song.album} track:${song.title}`
+      })
+
       const result = await searchSpotifyForSong(song.artist, song.album, song.title)
+
+      // DEBUG: Log search results
+      const resultDebugInfo = {
+        success: result.success,
+        trackCount: result.success ? result.tracks.length : 0,
+        tracks: result.success ? result.tracks.map(t => ({
+          name: t.name,
+          artist: t.artists[0]?.name,
+          album: t.album.name
+        })) : []
+      }
+      console.log('[SPOTIFY RESULTS]', resultDebugInfo)
+
+      // Update debug UI
+      setDebugInfo({
+        query: `artist:${song.artist} album:${song.album} track:${song.title}`,
+        trackCount: resultDebugInfo.trackCount,
+        topResults: resultDebugInfo.tracks.slice(0, 3)
+      })
 
       if (result.success && result.tracks.length > 0) {
         // Find best match
         const bestMatch = result.tracks[0]
         const similarity = calculateSimilarity(song.title, bestMatch.name)
+
+        // DEBUG: Log similarity calculation
+        console.log('[SIMILARITY]', {
+          localTitle: song.title,
+          spotifyTitle: bestMatch.name,
+          similarity
+        })
 
         // Try auto-match (will only succeed if enabled and similarity >= 80%)
         const wasAutoMatched = await attemptAutoMatchAndUpdateState(song.id, bestMatch, similarity )
@@ -205,6 +246,7 @@ export default function SpotifyMatcherPage() {
           })
         }
       } else {
+        console.log('[NO MATCH]', { songId: song.id, artist: song.artist, title: song.title })
         dispatchSongs({ type: 'SET_SEARCHING', payload: { songId: song.id, searching: false } })
       }
     } catch (err) {
@@ -352,6 +394,38 @@ export default function SpotifyMatcherPage() {
       <p className="text-muted-foreground mb-8">
         Match your iTunes songs with Spotify tracks
       </p>
+
+      {/* DEBUG PANEL */}
+      {debugInfo && (
+        <div data-testid="debug-panel" className="mb-8 p-4 border-2 border-yellow-300 rounded-lg bg-yellow-50">
+          <h3 className="font-bold text-yellow-900 mb-2">🐛 DEBUG: Spotify Search</h3>
+          <div className="text-sm space-y-2">
+            <div>
+              <span className="font-semibold">Query:</span> <code className="bg-yellow-100 px-1">{debugInfo.query}</code>
+            </div>
+            <div>
+              <span className="font-semibold">Results Found:</span> {debugInfo.trackCount}
+            </div>
+            {debugInfo.topResults.length > 0 && (
+              <div>
+                <span className="font-semibold">Top 3 Results:</span>
+                <ul className="list-disc ml-6 mt-1">
+                  {debugInfo.topResults.map((track, idx) => (
+                    <li key={idx}>
+                      <strong>{track.name}</strong> by {track.artist} ({track.album})
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {debugInfo.trackCount === 0 && (
+              <div className="text-red-700 font-semibold">
+                ⚠️ NO RESULTS - Search may be too restrictive!
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Tinder-style Review Card */}
       {hasMoreToReview && currentReview && (
