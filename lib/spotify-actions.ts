@@ -311,32 +311,11 @@ export async function searchSpotifyForSong(
   track: string | null
 ): Promise<ActionResult<{ tracks: SpotifyTrack[] }>> {
   try {
-    // Log the song metadata we're searching for (server-side, visible in Vercel)
-    console.log('[SEARCH_SONG_METADATA]', JSON.stringify({
-      localSong: {
-        artist,
-        album,
-        track,
-      },
-      timestamp: new Date().toISOString(),
-    }))
-
     // Use track-only search for maximum results
     // Enhanced similarity will filter/rank by artist and album
     const tracks = await searchSpotifyTracks({
       track: track || undefined
     })
-
-    // Log result count for correlation with Spotify API response
-    console.log('[SEARCH_SONG_RESULT]', JSON.stringify({
-      localSong: {
-        artist,
-        album,
-        track,
-      },
-      tracksFound: tracks.length,
-      timestamp: new Date().toISOString(),
-    }))
 
     return {
       success: true,
