@@ -15,6 +15,7 @@ import { ReviewCard } from './ReviewCard'
 import { SongTableRow } from './components/SongTableRow'
 import { ArtistHeader } from './components/ArtistHeader'
 import { calculateSimilarity } from '@/lib/similarity'
+import { calculateEnhancedSimilarity } from '@/lib/enhanced-similarity'
 import {
   shouldSkipSong,
   createInitialSongs,
@@ -199,39 +200,66 @@ export default function SpotifyMatcherPage() {
         artist: song.artist,
         album: song.album,
         title: song.title,
-        query: `artist:${song.artist} album:${song.album} track:${song.title}`
+        query: `track:${song.title}` // Now using track-only search
       })
 
       const result = await searchSpotifyForSong(song.artist, song.album, song.title)
 
-      // DEBUG: Log search results
-      const resultDebugInfo = {
-        success: result.success,
-        trackCount: result.success ? result.tracks.length : 0,
-        tracks: result.success ? result.tracks.map(t => ({
-          name: t.name,
-          artist: t.artists[0]?.name,
-          album: t.album.name
-        })) : []
-      }
-      console.log('[SPOTIFY RESULTS]', resultDebugInfo)
-
-      // Update debug UI
-      setDebugInfo({
-        query: `artist:${song.artist} album:${song.album} track:${song.title}`,
-        trackCount: resultDebugInfo.trackCount,
-        topResults: resultDebugInfo.tracks.slice(0, 3)
-      })
-
       if (result.success && result.tracks.length > 0) {
-        // Find best match
-        const bestMatch = result.tracks[0]
-        const similarity = calculateSimilarity(song.title, bestMatch.name)
+        // Calculate enhanced similarity for ALL results and sort by best match
+        const tracksWithSimilarity = result.tracks.map(track => ({
+          track,
+          similarity: calculateEnhancedSimilarity(
+            {
+              artist: song.artist,
+              title: song.title,
+              album: song.album
+            },
+            {
+              artist: track.artists[0]?.name || null,
+              title: track.name,
+              album: track.album.name
+            }
+          )
+        }))
 
-        // DEBUG: Log similarity calculation
-        console.log('[SIMILARITY]', {
-          localTitle: song.title,
-          spotifyTitle: bestMatch.name,
+        // Sort by similarity (descending) - best matches first
+        tracksWithSimilarity.sort((a, b) => b.similarity - a.similarity)
+
+        // DEBUG: Log search results with similarity scores
+        console.log('[SPOTIFY RESULTS]', {
+          totalTracks: tracksWithSimilarity.length,
+          top5: tracksWithSimilarity.slice(0, 5).map(t => ({
+            name: t.track.name,
+            artist: t.track.artists[0]?.name,
+            album: t.track.album.name,
+            similarity: t.similarity
+          }))
+        })
+
+        // Update debug UI
+        setDebugInfo({
+          query: `track:${song.title}`,
+          trackCount: tracksWithSimilarity.length,
+          topResults: tracksWithSimilarity.slice(0, 3).map(t => ({
+            name: t.track.name,
+            artist: t.track.artists[0]?.name || '',
+            album: t.track.album.name
+          }))
+        })
+
+        // Use best match (highest similarity)
+        const bestMatch = tracksWithSimilarity[0].track
+        const similarity = tracksWithSimilarity[0].similarity
+
+        // DEBUG: Log best match
+        console.log('[BEST MATCH]', {
+          local: { artist: song.artist, title: song.title, album: song.album },
+          spotify: {
+            artist: bestMatch.artists[0]?.name,
+            title: bestMatch.name,
+            album: bestMatch.album.name
+          },
           similarity
         })
 
