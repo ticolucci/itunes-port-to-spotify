@@ -8,7 +8,19 @@ test.describe('Spotify Matcher Smoke Test', () => {
   let testSongId: number;
   const testSongFilename = 'test_jacob_taylor_carolina_e2e.m4a';
 
-  test.beforeEach(async ({ request, baseURL }) => {
+  test.beforeEach(async ({ page, request, baseURL }) => {
+    // Intercept all requests to add Vercel protection bypass header
+    // This ensures ALL requests (including Server Actions) have the bypass header
+    if (process.env.VERCEL_AUTOMATION_BYPASS_SECRET) {
+      await page.route('**/*', async (route) => {
+        const headers = {
+          ...route.request().headers(),
+          'x-vercel-protection-bypass': process.env.VERCEL_AUTOMATION_BYPASS_SECRET!,
+        };
+        await route.continue({ headers });
+      });
+    }
+
     // Prepare headers for Vercel protection bypass
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
