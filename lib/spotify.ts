@@ -44,17 +44,6 @@ export async function searchSpotifyTracks(
 
   const query = queryParts.join(' ')
 
-  // Log search request for Vercel debugging
-  console.log('[SPOTIFY_SEARCH_REQUEST]', JSON.stringify({
-    input: {
-      artist: params.artist || null,
-      album: params.album || null,
-      track: params.track || null,
-    },
-    query,
-    timestamp: new Date().toISOString(),
-  }))
-
   // Initialize Spotify SDK with client credentials
   const sdk = SpotifyApi.withClientCredentials(clientId, clientSecret)
 
@@ -62,19 +51,6 @@ export async function searchSpotifyTracks(
   const results = await sdk.search(query, ['track'], undefined, 20)
 
   const tracks = results.tracks.items as SpotifyTrack[]
-
-  // Log search response for Vercel debugging
-  console.log('[SPOTIFY_SEARCH_RESPONSE]', JSON.stringify({
-    query,
-    totalResults: tracks.length,
-    topResults: tracks.slice(0, 5).map(t => ({
-      name: t.name,
-      artist: t.artists[0]?.name || null,
-      album: t.album.name,
-      id: t.id,
-    })),
-    timestamp: new Date().toISOString(),
-  }))
 
   return tracks
 }
