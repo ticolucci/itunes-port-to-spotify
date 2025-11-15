@@ -22,13 +22,12 @@ export function calculateEnhancedSimilarity(
   local: SongMetadata,
   spotify: SongMetadata
 ): number {
-  // Handle "null" string literals as actual nulls
-  const localArtist = local.artist === 'null' ? null : local.artist
-  const localTitle = local.title === 'null' ? null : local.title
-  const localAlbum = local.album === 'null' ? null : local.album
-  const spotifyArtist = spotify.artist === 'null' ? null : spotify.artist
-  const spotifyTitle = spotify.title === 'null' ? null : spotify.title
-  const spotifyAlbum = spotify.album === 'null' ? null : spotify.album
+  const localArtist = local.artist
+  const localTitle = local.title
+  const localAlbum = local.album
+  const spotifyArtist = spotify.artist
+  const spotifyTitle = spotify.title
+  const spotifyAlbum = spotify.album
 
   // Calculate individual similarities
   const titleSim = calculateSimilarity(localTitle, spotifyTitle)
@@ -54,14 +53,14 @@ export function calculateEnhancedSimilarity(
 
   // Check for missing artist scenarios BEFORE cover detection
   // Both missing artist - treat as perfect artist match
-  if ((!localArtist || localArtist === 'null') && (!spotifyArtist || spotifyArtist === 'null')) {
+  if (!localArtist && !spotifyArtist) {
     // Both null artists = high confidence based on title+album
     const adjScore = titleSim * 0.85 + albumSim * 0.1
     return Math.round(Math.min(95, adjScore))
   }
 
   // One missing artist but excellent title+album
-  if ((!localArtist || localArtist === 'null' || !spotifyArtist || spotifyArtist === 'null')) {
+  if ((!localArtist || !spotifyArtist )) {
     if (titleSim >= 95 && albumSim >= 95) {
       // Missing artist but perfect title+album - likely same
       return Math.round(titleSim * 0.7 + albumSim * 0.2)
