@@ -4,8 +4,8 @@ import type { SpotifyTrack } from '@/lib/spotify'
 export type SongsAction =
   | { type: 'SET_SONGS'; payload: SongWithMatch[] }
   | { type: 'SET_SEARCHING'; payload: { songId: number; searching: boolean } }
-  | { type: 'UPDATE_MATCH'; payload: { songId: number; spotifyMatch: SpotifyTrack; similarity: number } }
-  | { type: 'AUTO_MATCH'; payload: { songId: number; spotifyMatch: SpotifyTrack; similarity: number; spotifyId: string } }
+  | { type: 'UPDATE_MATCH'; payload: { songId: number; spotifyMatch: SpotifyTrack; similarity: number; allMatches?: Array<{ track: SpotifyTrack; similarity: number }> } }
+  | { type: 'AUTO_MATCH'; payload: { songId: number; spotifyMatch: SpotifyTrack; similarity: number; spotifyId: string; allMatches?: Array<{ track: SpotifyTrack; similarity: number }> } }
   | { type: 'MARK_MATCHED'; payload: { songId: number; spotifyId: string } }
   | { type: 'BATCH_MATCH'; payload: Map<number, { spotifyMatch: SpotifyTrack; similarity: number }> }
   | { type: 'CLEAR_MATCH'; payload: { songId: number } }
@@ -29,6 +29,7 @@ export function songsReducer(state: SongWithMatch[], action: SongsAction): SongW
               ...item,
               spotifyMatch: action.payload.spotifyMatch,
               similarity: action.payload.similarity,
+              allMatches: action.payload.allMatches,
               searching: false,
             }
           : item
@@ -41,6 +42,7 @@ export function songsReducer(state: SongWithMatch[], action: SongsAction): SongW
               ...item,
               spotifyMatch: action.payload.spotifyMatch,
               similarity: action.payload.similarity,
+              allMatches: action.payload.allMatches,
               searching: false,
               isMatched: true,
               dbSong: { ...item.dbSong, spotify_id: action.payload.spotifyId },
