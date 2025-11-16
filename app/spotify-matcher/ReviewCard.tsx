@@ -1,5 +1,6 @@
+import { useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Loader2, Check, X, Music } from 'lucide-react'
+import { Loader2, Check, X, Music, ChevronDown, ChevronUp } from 'lucide-react'
 import type { Song } from '@/lib/schema'
 import type { SpotifyTrack } from '@/lib/spotify'
 
@@ -9,6 +10,7 @@ interface SongWithMatch {
   similarity: number
   isMatched: boolean
   searching: boolean
+  allMatches?: Array<{ track: SpotifyTrack; similarity: number }>
 }
 
 interface ReviewCardProps {
@@ -28,9 +30,15 @@ export function ReviewCard({
   onMatch,
   onSkip,
 }: ReviewCardProps) {
+  const [isExpanded, setIsExpanded] = useState(false)
+
   if (!currentReview.spotifyMatch || currentReview.isMatched) {
     return null
   }
+
+  // Get additional matches (excluding the best match which is shown at top)
+  const additionalMatches = currentReview.allMatches?.slice(1) || []
+  const hasAdditionalMatches = additionalMatches.length > 0
 
   return (
     <div data-testid="review-card" className="mb-8 p-8 border-2 rounded-xl bg-gradient-to-br from-muted/50 to-muted/30 shadow-lg">
@@ -109,7 +117,7 @@ export function ReviewCard({
       </div>
 
       {/* Action Buttons */}
-      <div className="flex justify-center gap-6">
+      <div className="flex justify-center gap-6 mb-6">
         <Button
           data-testid="skip-button"
           variant="outline"
@@ -139,6 +147,69 @@ export function ReviewCard({
           )}
         </Button>
       </div>
+
+      {/* Expandable Additional Matches */}
+      {hasAdditionalMatches && (
+        <div className="border-t pt-6">
+          <button
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="w-full flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            {isExpanded ? (
+              <>
+                <ChevronUp className="h-4 w-4" />
+                Show less
+              </>
+            ) : (
+              <>
+                <ChevronDown className="h-4 w-4" />
+                See {additionalMatches.length} more {additionalMatches.length === 1 ? 'match' : 'matches'}
+              </>
+            )}
+          </button>
+
+          {isExpanded && (
+            <div data-testid="additional-matches-grid" className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {additionalMatches.map((match) => (
+                <button
+                  key={match.track.id}
+                  data-testid={`match-card-${match.track.id}`}
+                  onClick={() => onMatch(currentReview.dbSong.id, match.track.id)}
+                  disabled={isMatching}
+                  className="p-4 border-2 rounded-lg hover:border-primary hover:bg-primary/5 transition-all text-left disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <div className="flex gap-3">
+                    {match.track.album.images?.[0]?.url ? (
+                      // eslint-disable-next-line @next/next/no-img-element -- Spotify CDN images are already optimized
+                      <img
+                        src={match.track.album.images[0].url}
+                        alt={match.track.album.name}
+                        className="w-16 h-16 rounded object-cover flex-shrink-0"
+                      />
+                    ) : (
+                      <div className="w-16 h-16 bg-muted rounded flex items-center justify-center flex-shrink-0">
+                        <Music className="h-8 w-8 text-muted-foreground" />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-sm truncate">{match.track.name}</p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {match.track.artists.map((a) => a.name).join(', ')}
+                      </p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {match.track.album.name}
+                      </p>
+                      <span className="inline-block mt-1 text-xs px-2 py-0.5 rounded bg-blue-100 text-blue-700">
+                        {match.similarity}% match
+                      </span>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

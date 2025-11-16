@@ -121,7 +121,8 @@ export default function SpotifyMatcherPage() {
   async function attemptAutoMatchAndUpdateState(
     songId: number,
     spotifyMatch: SpotifyTrack,
-    similarity: number
+    similarity: number,
+    allMatches?: Array<{ track: SpotifyTrack; similarity: number }>
   ): Promise<boolean> {
     const spotifyId = await attemptAutoMatch(songId, spotifyMatch.id, similarity)
     if (!spotifyId) return false
@@ -129,7 +130,7 @@ export default function SpotifyMatcherPage() {
     // Update state using reducer action
     dispatchSongs({
       type: 'AUTO_MATCH',
-      payload: { songId, spotifyMatch, similarity, spotifyId }
+      payload: { songId, spotifyMatch, similarity, spotifyId, allMatches }
     })
 
     return true
@@ -243,6 +244,12 @@ export default function SpotifyMatcherPage() {
         const bestMatch = tracksWithSimilarity[0].track
         const similarity = tracksWithSimilarity[0].similarity
 
+        // Store all matches for the user to choose from
+        const allMatches = tracksWithSimilarity.map(t => ({
+          track: t.track,
+          similarity: t.similarity
+        }))
+
         // DEBUG: Log best match
         console.log('[BEST MATCH]', JSON.stringify({
           local: { artist: song.artist, title: song.title, album: song.album },
@@ -255,13 +262,13 @@ export default function SpotifyMatcherPage() {
         }))
 
         // Try auto-match (will only succeed if enabled and similarity >= 80%)
-        const wasAutoMatched = await attemptAutoMatchAndUpdateState(song.id, bestMatch, similarity )
+        const wasAutoMatched = await attemptAutoMatchAndUpdateState(song.id, bestMatch, similarity, allMatches)
 
         // If not auto-matched, update state with manual match option
         if (!wasAutoMatched) {
           dispatchSongs({
             type: 'UPDATE_MATCH',
-            payload: { songId: song.id, spotifyMatch: bestMatch, similarity }
+            payload: { songId: song.id, spotifyMatch: bestMatch, similarity, allMatches }
           })
         }
       } else {

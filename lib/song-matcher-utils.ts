@@ -7,6 +7,7 @@ export interface SongWithMatch {
   similarity: number
   isMatched: boolean
   searching: boolean
+  allMatches?: Array<{ track: SpotifyTrack; similarity: number }>
 }
 
 /**
