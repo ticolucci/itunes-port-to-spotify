@@ -17,13 +17,11 @@ function createMockTrack(overrides: Partial<{
   return {
     id: overrides.id || 'track-1',
     name: overrides.name || 'Test Track',
-    artists: [{ id: 'artist-1', name: overrides.artistName || 'Test Artist' }],
+    artists: [{ name: overrides.artistName || 'Test Artist' }],
     album: {
-      id: 'album-1',
       name: overrides.albumName || 'Test Album',
-      images: [{ url: 'https://example.com/image.jpg' }],
+      images: [{ url: 'https://example.com/image.jpg', height: 300, width: 300 }],
     },
-    external_urls: { spotify: 'https://open.spotify.com/track/test' },
     uri: 'spotify:track:test',
   }
 }
