@@ -14,12 +14,13 @@ import {
 import { ReviewCard } from './ReviewCard'
 import { SongTableRow } from './components/SongTableRow'
 import { ArtistHeader } from './components/ArtistHeader'
+import { DebugPanel } from './components/DebugPanel'
 import { calculateEnhancedSimilarity } from '@/lib/enhanced-similarity'
 import {
   shouldSkipSong,
   createInitialSongs,
-  getEligibleAutoMatchSongs,
   findNextReviewableIndex,
+  getEligibleAutoMatchSongs,
 } from '@/lib/song-matcher-utils'
 import { matcherReducer, initialMatcherState } from './state/matcherReducer'
 import { batchSearchSongs } from '@/lib/batch-search'
@@ -428,40 +429,7 @@ export default function SpotifyMatcherPage() {
       <p className="text-muted-foreground mb-8">Match your iTunes songs with Spotify tracks</p>
 
       {/* DEBUG PANEL */}
-      {debugInfo && (
-        <div
-          data-testid="debug-panel"
-          className="mb-8 p-4 border-2 border-yellow-300 rounded-lg bg-yellow-50"
-        >
-          <h3 className="font-bold text-yellow-900 mb-2">DEBUG: Spotify Search</h3>
-          <div className="text-sm space-y-2">
-            <div>
-              <span className="font-semibold">Query:</span>{' '}
-              <code className="bg-yellow-100 px-1">{debugInfo.query}</code>
-            </div>
-            <div>
-              <span className="font-semibold">Results Found:</span> {debugInfo.trackCount}
-            </div>
-            {debugInfo.topResults.length > 0 && (
-              <div>
-                <span className="font-semibold">Top 3 Results:</span>
-                <ul className="list-disc ml-6 mt-1">
-                  {debugInfo.topResults.map((track, idx) => (
-                    <li key={idx}>
-                      <strong>{track.name}</strong> by {track.artist} ({track.album})
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            {debugInfo.trackCount === 0 && (
-              <div className="text-red-700 font-semibold">
-                NO RESULTS - Search may be too restrictive!
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      <DebugPanel debugInfo={debugInfo} />
 
       {/* Tinder-style Review Card */}
       {hasMoreToReview && currentReview && (
