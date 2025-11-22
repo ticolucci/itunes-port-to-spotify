@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { searchSpotifyTracks } from './spotify'
+import { searchSpotifyTracks, escapeSpotifyQuery } from './spotify'
 
 // Mock the Spotify SDK
 vi.mock('@spotify/web-api-ts-sdk', () => ({
@@ -116,6 +116,86 @@ describe('Spotify Client', () => {
       await expect(
         searchSpotifyTracks({ artist: 'Test' })
       ).rejects.toThrow('API Error')
+    })
+
+    it('escapes special characters in search queries', async () => {
+      const mockSearch = vi.fn().mockResolvedValue({ tracks: { items: [] } })
+
+      vi.mocked(SpotifyApi.withClientCredentials).mockReturnValue({
+        search: mockSearch,
+      } as any)
+
+      await searchSpotifyTracks({ artist: 'AC/DC', track: 'My "Love" Song' })
+
+      // Verify the query has escaped special characters
+      const calledQuery = mockSearch.mock.calls[0][0]
+      expect(calledQuery).not.toContain('"')
+      expect(calledQuery).toContain('AC/DC') // Forward slash is safe
+    })
+  })
+
+  describe('escapeSpotifyQuery', () => {
+    it('returns empty string for null or undefined', () => {
+      expect(escapeSpotifyQuery(null as unknown as string)).toBe('')
+      expect(escapeSpotifyQuery(undefined as unknown as string)).toBe('')
+    })
+
+    it('returns empty string for whitespace-only input', () => {
+      expect(escapeSpotifyQuery('   ')).toBe('')
+      expect(escapeSpotifyQuery('\t\n')).toBe('')
+    })
+
+    it('trims whitespace from input', () => {
+      expect(escapeSpotifyQuery('  hello  ')).toBe('hello')
+    })
+
+    it('removes double quotes', () => {
+      expect(escapeSpotifyQuery('My "Love" Song')).toBe('My Love Song')
+      expect(escapeSpotifyQuery('"Quoted"')).toBe('Quoted')
+    })
+
+    it('removes single quotes that could interfere', () => {
+      expect(escapeSpotifyQuery("It's a song")).toBe("It's a song")
+    })
+
+    it('removes colons (field separators)', () => {
+      expect(escapeSpotifyQuery('Part 1: The Beginning')).toBe('Part 1 The Beginning')
+    })
+
+    it('removes asterisks (wildcards)', () => {
+      expect(escapeSpotifyQuery('Super*Star')).toBe('SuperStar')
+    })
+
+    it('handles exclamation marks', () => {
+      expect(escapeSpotifyQuery('Hey!')).toBe('Hey')
+    })
+
+    it('handles parentheses', () => {
+      expect(escapeSpotifyQuery('Song (Remix)')).toBe('Song Remix')
+      expect(escapeSpotifyQuery('Song [Live]')).toBe('Song Live')
+    })
+
+    it('normalizes multiple spaces to single space', () => {
+      expect(escapeSpotifyQuery('Hello   World')).toBe('Hello World')
+      expect(escapeSpotifyQuery('a  :  b')).toBe('a b')
+    })
+
+    it('handles real-world examples', () => {
+      expect(escapeSpotifyQuery('AC/DC')).toBe('AC/DC')
+      expect(escapeSpotifyQuery('Guns N\' Roses')).toBe("Guns N' Roses")
+      expect(escapeSpotifyQuery('P!nk')).toBe('Pnk')
+      expect(escapeSpotifyQuery('Ke$ha')).toBe('Keha')
+      expect(escapeSpotifyQuery('The Beatles: 1967-1970')).toBe('The Beatles 1967-1970')
+    })
+
+    it('preserves unicode characters', () => {
+      expect(escapeSpotifyQuery('Björk')).toBe('Björk')
+      expect(escapeSpotifyQuery('Sigur Rós')).toBe('Sigur Rós')
+      expect(escapeSpotifyQuery('日本語')).toBe('日本語')
+    })
+
+    it('handles combined edge cases', () => {
+      expect(escapeSpotifyQuery('  "Hey!" Part 1: *Remix*  ')).toBe('Hey Part 1 Remix')
     })
   })
 })
