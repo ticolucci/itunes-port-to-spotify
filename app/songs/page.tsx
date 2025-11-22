@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -10,9 +12,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Search, Trash2, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, Trash2, Loader2, ChevronLeft, ChevronRight, X } from "lucide-react";
 import type { Song } from "@/lib/schema";
-import { fetchSongs } from "@/lib/actions";
+import { fetchSongs, type SongFilters } from "@/lib/actions";
 import { SongRow } from "./_components/song-row";
 
 const PAGE_SIZE = 50;
@@ -25,7 +27,46 @@ export default function SongsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
 
-  // Fetch songs using Server Action when page changes
+  // Filter state
+  const [filters, setFilters] = useState<SongFilters>({});
+  const [titleFilter, setTitleFilter] = useState("");
+  const [artistFilter, setArtistFilter] = useState("");
+  const [albumFilter, setAlbumFilter] = useState("");
+  const [spotifyMatchFilter, setSpotifyMatchFilter] = useState<string>("");
+
+  // Build filters object from individual filter states
+  const buildFilters = useCallback((): SongFilters => {
+    const f: SongFilters = {};
+    if (titleFilter.trim()) f.title = titleFilter.trim();
+    if (artistFilter.trim()) f.artist = artistFilter.trim();
+    if (albumFilter.trim()) f.album = albumFilter.trim();
+    if (spotifyMatchFilter === "matched") f.hasSpotifyMatch = true;
+    if (spotifyMatchFilter === "unmatched") f.hasSpotifyMatch = false;
+    return f;
+  }, [titleFilter, artistFilter, albumFilter, spotifyMatchFilter]);
+
+  // Apply filters (resets to page 1)
+  const applyFilters = useCallback(() => {
+    setFilters(buildFilters());
+    setCurrentPage(1);
+    setSelectedIds(new Set());
+  }, [buildFilters]);
+
+  // Clear all filters
+  const clearFilters = useCallback(() => {
+    setTitleFilter("");
+    setArtistFilter("");
+    setAlbumFilter("");
+    setSpotifyMatchFilter("");
+    setFilters({});
+    setCurrentPage(1);
+    setSelectedIds(new Set());
+  }, []);
+
+  // Check if any filters are active
+  const hasActiveFilters = titleFilter || artistFilter || albumFilter || spotifyMatchFilter;
+
+  // Fetch songs using Server Action when page or filters change
   useEffect(() => {
     async function loadSongs() {
       try {
@@ -34,8 +75,8 @@ export default function SongsPage() {
 
         const offset = (currentPage - 1) * PAGE_SIZE;
 
-        // Call Server Action with pagination
-        const data = await fetchSongs({ limit: PAGE_SIZE, offset });
+        // Call Server Action with pagination and filters
+        const data = await fetchSongs({ limit: PAGE_SIZE, offset, filters });
 
         if (!data.success) {
           throw new Error(data.error);
@@ -52,7 +93,7 @@ export default function SongsPage() {
     }
 
     loadSongs();
-  }, [currentPage]); // Re-fetch when page changes
+  }, [currentPage, filters]); // Re-fetch when page or filters change
 
   // Pagination helpers
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
@@ -136,6 +177,76 @@ export default function SongsPage() {
         </p>
       </div>
 
+      {/* Filter Controls */}
+      <div className="mb-6 p-4 border rounded-lg bg-muted/30">
+        <div className="flex flex-wrap gap-4 items-end">
+          <div className="flex-1 min-w-[150px]">
+            <label htmlFor="title-filter" className="block text-sm font-medium mb-1">
+              Title starts with
+            </label>
+            <Input
+              id="title-filter"
+              placeholder="e.g. Bohemian"
+              value={titleFilter}
+              onChange={(e) => setTitleFilter(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && applyFilters()}
+            />
+          </div>
+          <div className="flex-1 min-w-[150px]">
+            <label htmlFor="artist-filter" className="block text-sm font-medium mb-1">
+              Artist starts with
+            </label>
+            <Input
+              id="artist-filter"
+              placeholder="e.g. Queen"
+              value={artistFilter}
+              onChange={(e) => setArtistFilter(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && applyFilters()}
+            />
+          </div>
+          <div className="flex-1 min-w-[150px]">
+            <label htmlFor="album-filter" className="block text-sm font-medium mb-1">
+              Album starts with
+            </label>
+            <Input
+              id="album-filter"
+              placeholder="e.g. A Night"
+              value={albumFilter}
+              onChange={(e) => setAlbumFilter(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && applyFilters()}
+            />
+          </div>
+          <div className="w-[150px]">
+            <label htmlFor="spotify-filter" className="block text-sm font-medium mb-1">
+              Spotify Match
+            </label>
+            <Select
+              id="spotify-filter"
+              value={spotifyMatchFilter}
+              onChange={(e) => {
+                setSpotifyMatchFilter(e.target.value);
+              }}
+            >
+              <option value="">All</option>
+              <option value="matched">Matched</option>
+              <option value="unmatched">Unmatched</option>
+            </Select>
+          </div>
+          <div className="flex gap-2">
+            <Button onClick={applyFilters} disabled={loading}>
+              <Search className="h-4 w-4 mr-2" />
+              Filter
+            </Button>
+            {hasActiveFilters && (
+              <Button variant="outline" onClick={clearFilters} disabled={loading}>
+                <X className="h-4 w-4 mr-2" />
+                Clear
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
+
       <div className="border rounded-lg">
         <Table>
           <TableHeader>
@@ -151,6 +262,7 @@ export default function SongsPage() {
               <TableHead>Artist</TableHead>
               <TableHead>Album</TableHead>
               <TableHead>Album Artist</TableHead>
+              <TableHead>Spotify</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>

@@ -1,9 +1,10 @@
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { TableCell, TableRow } from "@/components/ui/table";
-import { Search, Trash2, AlertCircle, Music } from "lucide-react";
+import { Search, Trash2, AlertCircle, Music, Check } from "lucide-react";
 import type { Song } from "@/lib/schema";
 import Link from "next/link";
+import { Badge } from "@/components/ui/badge";
 
 interface SongRowProps {
   song: Song;
@@ -21,6 +22,7 @@ export function SongRow({
   onDelete,
 }: SongRowProps) {
   const hasIncompleteMetadata = !song.title || !song.artist || !song.album;
+  const hasSpotifyMatch = !!song.spotify_id;
 
   return (
     <TableRow key={song.id} data-state={isSelected ? "selected" : undefined}>
@@ -47,6 +49,18 @@ export function SongRow({
       </TableCell>
       <TableCell className="text-muted-foreground">
         {song.album_artist || "—"}
+      </TableCell>
+      <TableCell>
+        {hasSpotifyMatch ? (
+          <Badge variant="default" className="bg-green-600 hover:bg-green-700">
+            <Check className="h-3 w-3 mr-1" />
+            Matched
+          </Badge>
+        ) : (
+          <Badge variant="secondary" className="text-muted-foreground">
+            Unmatched
+          </Badge>
+        )}
       </TableCell>
       <TableCell className="text-right">
         <div className="flex justify-end gap-2">
