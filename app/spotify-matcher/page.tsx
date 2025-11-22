@@ -1,9 +1,8 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef, useReducer } from 'react'
+import { useState, useEffect, useCallback, useReducer } from 'react'
 import { Loader2, Check } from 'lucide-react'
 import type { Song } from '@/lib/schema'
-import type { SpotifyTrack } from '@/lib/spotify'
 import {
   getRandomUnmatchedSong,
   getSongsByArtist,
@@ -14,20 +13,15 @@ import {
 import { ReviewCard } from './ReviewCard'
 import { SongTableRow } from './components/SongTableRow'
 import { ArtistHeader } from './components/ArtistHeader'
+import { DebugPanel, type DebugInfo } from './components/DebugPanel'
 import { calculateEnhancedSimilarity } from '@/lib/enhanced-similarity'
 import {
   shouldSkipSong,
   createInitialSongs,
-  getEligibleAutoMatchSongs,
   findNextReviewableIndex,
 } from '@/lib/song-matcher-utils'
 import { songsReducer } from './state/songsReducer'
-
-interface DebugInfo {
-  query: string
-  trackCount: number
-  topResults: Array<{ name: string; artist: string; album: string }>
-}
+import { useAutoMatch } from './hooks/useAutoMatch'
 
 export default function SpotifyMatcherPage() {
   const [currentArtist, setCurrentArtist] = useState<string | null>(null)
@@ -36,16 +30,18 @@ export default function SpotifyMatcherPage() {
   const [error, setError] = useState<string | null>(null)
   const [matchingIds, setMatchingIds] = useState<Set<number>>(new Set())
   const [currentReviewIndex, setCurrentReviewIndex] = useState(0)
-  const [autoMatchEnabled, setAutoMatchEnabled] = useState(false)
-  const processedAutoMatches = useRef<Set<number>>(new Set())
-  const autoMatchInProgress = useRef(false)
   const [debugInfo, setDebugInfo] = useState<DebugInfo | null>(null)
+
+  const { autoMatchEnabled, setAutoMatchEnabled, attemptAutoMatchAndUpdateState } = useAutoMatch({
+    songsWithMatches,
+    matchingIds,
+    dispatchSongs,
+  })
 
   const loadRandomArtist = useCallback(async () => {
     try {
       setLoading(true)
       setError(null)
-      processedAutoMatches.current.clear() // Reset tracking when loading new artist
 
       // Check for song ID query param (songId or test_song_id for E2E testing)
       const params = new URLSearchParams(window.location.search)
@@ -98,93 +94,6 @@ export default function SpotifyMatcherPage() {
   useEffect(() => {
     loadRandomArtist()
   }, [loadRandomArtist])
-
-  /**
-   * Attempts to save an auto-match to the database.
-   * Returns the spotify ID if successful, null otherwise.
-   */
-  const attemptAutoMatch = useCallback(
-    async (songId: number, spotifyId: string, similarity: number): Promise<string | null> => {
-      if (!autoMatchEnabled || similarity < 80) return null
-
-      const matchResult = await saveSongMatch(songId, spotifyId)
-      if (!matchResult.success) return null
-
-      return spotifyId
-    },
-    [autoMatchEnabled]
-  )
-
-  /**
-   * Attempts to auto-match a song with its Spotify match and updates state.
-   * Returns true if match was successful, false otherwise.
-   */
-  async function attemptAutoMatchAndUpdateState(
-    songId: number,
-    spotifyMatch: SpotifyTrack,
-    similarity: number,
-    allMatches?: Array<{ track: SpotifyTrack; similarity: number }>
-  ): Promise<boolean> {
-    const spotifyId = await attemptAutoMatch(songId, spotifyMatch.id, similarity)
-    if (!spotifyId) return false
-
-    // Update state using reducer action
-    dispatchSongs({
-      type: 'AUTO_MATCH',
-      payload: { songId, spotifyMatch, similarity, spotifyId, allMatches }
-    })
-
-    return true
-  }
-
-  // Auto-match existing search results when toggle is enabled
-  useEffect(() => {
-    if (!autoMatchEnabled) return
-
-    async function autoMatchEligibleSongs() {
-      // Prevent race conditions - only one auto-match process at a time
-      if (autoMatchInProgress.current) return
-      autoMatchInProgress.current = true
-
-      try {
-        // Filter songs we haven't processed yet
-        const eligibleSongs = getEligibleAutoMatchSongs(
-          songsWithMatches,
-          matchingIds,
-          processedAutoMatches.current
-        )
-
-        // Mark as processed BEFORE async operations to prevent duplicates
-        eligibleSongs.forEach((s) => processedAutoMatches.current.add(s.dbSong.id))
-
-        // Collect all successful matches
-        const matchResults = new Map<number, { spotifyMatch: SpotifyTrack; similarity: number }>()
-
-        await Promise.all(eligibleSongs.map(async (songWithMatch) => {
-          const spotifyId = await attemptAutoMatch(
-            songWithMatch.dbSong.id,
-            songWithMatch.spotifyMatch!.id,
-            songWithMatch.similarity
-          )
-          if (spotifyId) {
-            matchResults.set(songWithMatch.dbSong.id, {
-              spotifyMatch: songWithMatch.spotifyMatch!,
-              similarity: songWithMatch.similarity,
-            })
-          }
-        }))
-
-        // Single batched state update for all successful matches
-        if (matchResults.size > 0) {
-          dispatchSongs({ type: 'BATCH_MATCH', payload: matchResults })
-        }
-      } finally {
-        autoMatchInProgress.current = false
-      }
-    }
-
-    autoMatchEligibleSongs()
-  }, [autoMatchEnabled, songsWithMatches, matchingIds, attemptAutoMatch])
 
   async function searchForMatch(song: Song) {
     // Skip songs without titles (defensive check)
@@ -433,36 +342,7 @@ export default function SpotifyMatcherPage() {
       </p>
 
       {/* DEBUG PANEL */}
-      {debugInfo && (
-        <div data-testid="debug-panel" className="mb-8 p-4 border-2 border-yellow-300 rounded-lg bg-yellow-50">
-          <h3 className="font-bold text-yellow-900 mb-2">🐛 DEBUG: Spotify Search</h3>
-          <div className="text-sm space-y-2">
-            <div>
-              <span className="font-semibold">Query:</span> <code className="bg-yellow-100 px-1">{debugInfo.query}</code>
-            </div>
-            <div>
-              <span className="font-semibold">Results Found:</span> {debugInfo.trackCount}
-            </div>
-            {debugInfo.topResults.length > 0 && (
-              <div>
-                <span className="font-semibold">Top 3 Results:</span>
-                <ul className="list-disc ml-6 mt-1">
-                  {debugInfo.topResults.map((track, idx) => (
-                    <li key={idx}>
-                      <strong>{track.name}</strong> by {track.artist} ({track.album})
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            {debugInfo.trackCount === 0 && (
-              <div className="text-red-700 font-semibold">
-                ⚠️ NO RESULTS - Search may be too restrictive!
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      <DebugPanel debugInfo={debugInfo} />
 
       {/* Tinder-style Review Card */}
       {hasMoreToReview && currentReview && (
