@@ -99,3 +99,30 @@ export function getEligibleAutoMatchSongs(
     isEligibleForAutoMatch(s, matchingIds, processedMatches)
   )
 }
+
+/**
+ * Determines if a song is reviewable (can be shown in the review card).
+ * A song is reviewable if it:
+ * - Has a spotifyMatch (not null - i.e., search didn't fail)
+ * - Is not already matched
+ * - Is not still searching
+ */
+export function isReviewable(song: SongWithMatch): boolean {
+  return !!song.spotifyMatch && !song.isMatched && !song.searching
+}
+
+/**
+ * Finds the next reviewable song index starting from a given index.
+ * Returns -1 if no reviewable song is found.
+ */
+export function findNextReviewableIndex(
+  songs: SongWithMatch[],
+  startIndex: number
+): number {
+  for (let i = startIndex; i < songs.length; i++) {
+    if (isReviewable(songs[i])) {
+      return i
+    }
+  }
+  return -1
+}
