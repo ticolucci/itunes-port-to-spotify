@@ -10,9 +10,10 @@ interface SongTableRowProps {
   isMatching: boolean
   onMatch: (songId: number, spotifyId: string) => void
   onUndo: (songId: number) => void
+  onSongUpdate?: (songId: number, update: { artist: string; title: string; album: string | null }) => void
 }
 
-export function SongTableRow({ songWithMatch, isMatching, onMatch, onUndo }: SongTableRowProps) {
+export function SongTableRow({ songWithMatch, isMatching, onMatch, onUndo, onSongUpdate }: SongTableRowProps) {
   const albumImage = songWithMatch.spotifyMatch?.album.images?.[0]?.url
 
   return (
@@ -90,6 +91,7 @@ export function SongTableRow({ songWithMatch, isMatching, onMatch, onUndo }: Son
             </p>
             <AISuggestion
               song={songWithMatch.dbSong}
+              onFixApplied={(update) => onSongUpdate?.(songWithMatch.dbSong.id, update)}
             />
           </div>
         ) : (
@@ -99,6 +101,7 @@ export function SongTableRow({ songWithMatch, isMatching, onMatch, onUndo }: Son
             </p>
             <AISuggestion
               song={songWithMatch.dbSong}
+              onFixApplied={(update) => onSongUpdate?.(songWithMatch.dbSong.id, update)}
             />
           </div>
         )}
