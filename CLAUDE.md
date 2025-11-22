@@ -120,6 +120,132 @@ npm run db:studio
   sqlite3 database.db "INSERT INTO __drizzle_migrations (hash, created_at) VALUES ('XXXX_migration_name', $(date +%s)000);"
   ```
 
+#### Handling Migration Failures
+
+**Local Development Failures:**
+1. **Syntax errors in SQL**: Fix the generated SQL in `drizzle/migrations/` and re-run `npm run db:migrate`
+2. **Constraint violations**: Check existing data before migration; clean up or transform data first
+3. **Schema conflicts**: If schema is out of sync, use `npm run db:push` (dev only) to force-sync, then regenerate migrations
+
+**Production/CI Failures:**
+1. The GitHub Actions workflow will **fail and stop deployment** if migrations fail
+2. Check the Actions log for the specific error message
+3. Fix the migration and push a new commit - migrations are re-attempted on each deploy
+4. If the migration partially applied, see "Rolling Back Migrations" below
+
+**Common Failure Scenarios:**
+- **"table already exists"**: Migration was partially applied previously; mark as complete or fix manually
+- **"no such column"**: Migration order issue; check migration file timestamps
+- **"constraint failed"**: Data doesn't satisfy new constraints; add data transformation step
+
+#### Rolling Back Migrations
+
+**Important:** Drizzle ORM does not have built-in rollback support. Rollbacks must be done manually.
+
+**Strategy 1: Create a Reverse Migration (Recommended)**
+1. Generate a new migration that undoes the previous changes:
+   ```bash
+   # Manually edit lib/schema.ts to reverse the change
+   npm run db:generate
+   # This creates a new "forward" migration that reverses the effect
+   ```
+2. Apply the reverse migration: `npm run db:migrate`
+
+**Strategy 2: Manual Database Rollback (Emergency)**
+For local development:
+```bash
+# 1. Create a backup first!
+cp database.db database.db.backup
+
+# 2. Connect to SQLite and manually undo changes
+sqlite3 database.db
+
+# Example: Drop a newly added column
+ALTER TABLE songs DROP COLUMN new_column;
+
+# Example: Remove the migration record so it can be re-run after fixes
+DELETE FROM __drizzle_migrations WHERE hash LIKE '%problematic_migration%';
+
+.exit
+```
+
+For Turso (production):
+```bash
+# Use the Turso CLI or SQL console
+turso db shell <database-name>
+
+# Run the same SQL commands as above
+# Then update the __drizzle_migrations table
+```
+
+**Strategy 3: Restore from Backup**
+- Turso automatically maintains point-in-time recovery
+- Contact Turso support for production database restoration
+- For local development, restore from your backup: `cp database.db.backup database.db`
+
+**Rollback Best Practices:**
+- Always test migrations on a branch database before merging to main
+- Keep migrations small and atomic - easier to rollback individual changes
+- Include data migration scripts if changing column types or constraints
+- Never delete migration files after they've been applied to production
+
+#### Testing Migrations Before Production
+
+**Level 1: Local Testing (Required)**
+```bash
+# 1. Backup your local database
+cp database.db database.db.backup
+
+# 2. Run migrations locally
+npm run db:migrate
+
+# 3. Verify the schema
+npm run db:studio  # Visual inspection with Drizzle Studio
+
+# 4. Run the application and test affected features
+npm run dev
+
+# 5. Run all tests
+npm test
+```
+
+**Level 2: PR Preview Testing (Automatic)**
+When you open a pull request:
+1. GitHub Actions creates an isolated **Turso branch database**
+2. The branch database is seeded from production data
+3. Migrations run automatically on the branch database
+4. A preview deployment uses this branch database
+5. You can test the full application with real data
+
+This provides confidence that:
+- Migration syntax is valid
+- Migration works with production-like data
+- Application works correctly after migration
+
+**Level 3: Manual Branch Database Testing**
+For complex migrations, manually test against a Turso branch:
+```bash
+# Create a branch database via Turso CLI or API
+# Set environment variables to point to branch
+export TURSO_DATABASE_URL="libsql://your-branch-db.turso.io"
+export TURSO_AUTH_TOKEN="your-branch-token"
+
+# Run migrations against the branch
+npm run db:migrate
+
+# Test the application
+npm run dev
+```
+
+**Migration Testing Checklist:**
+- [ ] Schema changes compile without TypeScript errors
+- [ ] `npm run db:generate` creates expected SQL
+- [ ] Migration applies successfully on local database
+- [ ] Application starts without errors after migration
+- [ ] All existing tests pass
+- [ ] Affected features work correctly in browser
+- [ ] PR preview deployment works with branch database
+
 ## Architecture
 
 ### Core Components
