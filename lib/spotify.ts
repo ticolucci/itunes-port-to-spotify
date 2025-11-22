@@ -1,4 +1,5 @@
 import { SpotifyApi } from '@spotify/web-api-ts-sdk'
+import { getCachedSearch, setCachedSearch } from './spotify-cache'
 
 export interface SpotifyTrack {
   id: string
@@ -18,7 +19,8 @@ export interface SpotifySearchParams {
 }
 
 /**
- * Search Spotify tracks using artist, album, and/or track name
+ * Search Spotify tracks using artist, album, and/or track name.
+ * Results are cached for 24 hours to reduce API calls.
  */
 export async function searchSpotifyTracks(
   params: SpotifySearchParams
@@ -42,6 +44,22 @@ export async function searchSpotifyTracks(
     throw new Error('At least one search parameter (artist, album, or track) is required')
   }
 
+  // Check cache first
+  try {
+    const cachedResults = await getCachedSearch(params)
+    if (cachedResults !== null) {
+      console.log('[SPOTIFY_CACHE_HIT]', JSON.stringify({
+        params,
+        resultCount: cachedResults.length,
+        timestamp: new Date().toISOString(),
+      }))
+      return cachedResults
+    }
+  } catch (cacheError) {
+    // Cache errors should not block the search
+    console.warn('[SPOTIFY_CACHE_ERROR]', cacheError)
+  }
+
   const query = queryParts.join(' ')
 
   // Initialize Spotify SDK with client credentials
@@ -51,6 +69,19 @@ export async function searchSpotifyTracks(
   const results = await sdk.search(query, ['track'], undefined, 20)
 
   const tracks = results.tracks.items as SpotifyTrack[]
+
+  // Store in cache (fire and forget - don't block on cache writes)
+  try {
+    await setCachedSearch(params, tracks)
+    console.log('[SPOTIFY_CACHE_SET]', JSON.stringify({
+      params,
+      resultCount: tracks.length,
+      timestamp: new Date().toISOString(),
+    }))
+  } catch (cacheError) {
+    // Cache errors should not affect the response
+    console.warn('[SPOTIFY_CACHE_WRITE_ERROR]', cacheError)
+  }
 
   return tracks
 }
