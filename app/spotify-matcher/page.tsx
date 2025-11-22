@@ -22,6 +22,7 @@ import {
   findNextReviewableIndex,
 } from '@/lib/song-matcher-utils'
 import { songsReducer } from './state/songsReducer'
+import { batchSearchSongs } from '@/lib/batch-search'
 
 interface DebugInfo {
   query: string
@@ -81,11 +82,12 @@ export default function SpotifyMatcherPage() {
       setLoading(false)
       setCurrentReviewIndex(0) // Reset review index
 
-      // 4. Search for Spotify matches for each unmatched song
-      songsResult.songs.forEach((song: Song) => {
-        if (!song.spotify_id) {
-          searchForMatch(song)
-        }
+      // 4. Search for Spotify matches with rate limiting
+      // Uses bottleneck to limit concurrent requests and prevent Spotify API rate limiting
+      batchSearchSongs(songsResult.songs, searchForMatch, {
+        onError: (song, err) => {
+          console.error(`Failed to search for song ${song.id}:`, err)
+        },
       })
         } catch (err) {
       console.error('Error loading artist:', err)
