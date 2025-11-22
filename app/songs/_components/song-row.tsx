@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { TableCell, TableRow } from "@/components/ui/table";
-import { Search, Trash2, AlertCircle, Music, Check } from "lucide-react";
+import { Search, Trash2, AlertCircle, Music, Check, ExternalLink } from "lucide-react";
 import type { Song } from "@/lib/schema";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
@@ -51,16 +51,29 @@ export function SongRow({
         {song.album_artist || "—"}
       </TableCell>
       <TableCell>
-        {hasSpotifyMatch ? (
-          <Badge variant="default" className="bg-green-600 hover:bg-green-700">
-            <Check className="h-3 w-3 mr-1" />
-            Matched
-          </Badge>
-        ) : (
-          <Badge variant="secondary" className="text-muted-foreground">
-            Unmatched
-          </Badge>
-        )}
+        <div className="flex items-center gap-2">
+          {hasSpotifyMatch ? (
+            <>
+              <Badge variant="default" className="bg-green-600 hover:bg-green-700">
+                <Check className="h-3 w-3 mr-1" />
+                Matched
+              </Badge>
+              <a
+                href={`http://open.spotify.com/track/${song.spotify_id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-green-600 hover:text-green-700"
+                title="Open in Spotify"
+              >
+                <ExternalLink className="h-4 w-4" />
+              </a>
+            </>
+          ) : (
+            <Badge variant="secondary" className="text-muted-foreground">
+              Unmatched
+            </Badge>
+          )}
+        </div>
       </TableCell>
       <TableCell className="text-right">
         <div className="flex justify-end gap-2">

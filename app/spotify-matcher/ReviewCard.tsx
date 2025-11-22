@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Loader2, Check, X, Music, ChevronDown, ChevronUp } from 'lucide-react'
+import { Loader2, Check, X, Music, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react'
 import type { SongWithMatch } from '@/lib/song-matcher-utils'
 
 interface ReviewCardProps {
@@ -101,6 +101,15 @@ export function ReviewCard({
                   ? `${currentReview.similarity}% match`
                   : 'placeholder'}
               </span>
+              <a
+                href={`http://open.spotify.com/track/${currentReview.spotifyMatch.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 mt-2 text-xs text-green-600 hover:text-green-700"
+              >
+                <ExternalLink className="h-3 w-3" />
+                Open in Spotify
+              </a>
             </div>
           </div>
         </div>
@@ -189,9 +198,21 @@ export function ReviewCard({
                       <p className="text-xs text-muted-foreground truncate">
                         {match.track.album.name}
                       </p>
-                      <span className="inline-block mt-1 text-xs px-2 py-0.5 rounded bg-blue-100 text-blue-700">
-                        {match.similarity}% match
-                      </span>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-xs px-2 py-0.5 rounded bg-blue-100 text-blue-700">
+                          {match.similarity}% match
+                        </span>
+                        <a
+                          href={`http://open.spotify.com/track/${match.track.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-green-600 hover:text-green-700"
+                          title="Open in Spotify"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      </div>
                     </div>
                   </div>
                 </button>

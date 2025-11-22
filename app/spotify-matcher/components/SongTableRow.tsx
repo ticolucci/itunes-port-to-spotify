@@ -82,6 +82,15 @@ export function SongTableRow({ songWithMatch, isMatching, onMatch, onUndo, onSon
               <p className="text-xs text-muted-foreground truncate">
                 {songWithMatch.spotifyMatch.album.name}
               </p>
+              <a
+                href={`http://open.spotify.com/track/${songWithMatch.spotifyMatch.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 mt-1 text-xs text-green-600 hover:text-green-700"
+              >
+                <ExternalLink className="h-3 w-3" />
+                Open in Spotify
+              </a>
             </div>
           </>
         ) : hasIncompleteMetadata(songWithMatch.dbSong) ? (
