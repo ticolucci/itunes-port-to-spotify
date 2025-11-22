@@ -1,6 +1,44 @@
 import { SpotifyApi } from '@spotify/web-api-ts-sdk'
 import { getCachedSearch, setCachedSearch } from './spotify-cache'
 
+/**
+ * Escape special characters from Spotify search queries.
+ * Spotify search has special syntax characters that can break searches:
+ * - " (quotes) - used for exact phrase matching
+ * - : (colon) - used as field separator (artist:, album:, track:)
+ * - * (asterisk) - used as wildcard
+ * - ! (exclamation) - negation
+ * - $ (dollar) - special meaning
+ * - () [] - grouping
+ *
+ * @param value - The raw string value to escape
+ * @returns The escaped string safe for Spotify search, or empty string for invalid input
+ */
+export function escapeSpotifyQuery(value: string): string {
+  if (!value || typeof value !== 'string') {
+    return ''
+  }
+
+  let escaped = value.trim()
+  if (!escaped) {
+    return ''
+  }
+
+  // Remove characters that have special meaning in Spotify search
+  escaped = escaped
+    .replace(/["]/g, '')       // Remove double quotes (exact phrase)
+    .replace(/[:]/g, ' ')      // Replace colons with space (field separator)
+    .replace(/[*]/g, '')       // Remove asterisks (wildcards)
+    .replace(/[!]/g, '')       // Remove exclamation marks (negation)
+    .replace(/[$]/g, '')       // Remove dollar signs
+    .replace(/[()[\]]/g, '')   // Remove parentheses and brackets
+
+  // Normalize multiple spaces to single space
+  escaped = escaped.replace(/\s+/g, ' ').trim()
+
+  return escaped
+}
+
 export interface SpotifyTrack {
   id: string
   name: string
@@ -33,11 +71,15 @@ export async function searchSpotifyTracks(
   }
 
   // Build tagged query (e.g., "artist:Beatles album:Abbey Road")
-  // Filter out null/empty values and trim whitespace
+  // Filter out null/empty values, escape special characters, and trim whitespace
   const queryParts: string[] = []
-  if (params.artist?.trim()) queryParts.push(`artist:${params.artist.trim()}`)
-  if (params.album?.trim()) queryParts.push(`album:${params.album.trim()}`)
-  if (params.track?.trim()) queryParts.push(`track:${params.track.trim()}`)
+  const escapedArtist = escapeSpotifyQuery(params.artist || '')
+  const escapedAlbum = escapeSpotifyQuery(params.album || '')
+  const escapedTrack = escapeSpotifyQuery(params.track || '')
+
+  if (escapedArtist) queryParts.push(`artist:${escapedArtist}`)
+  if (escapedAlbum) queryParts.push(`album:${escapedAlbum}`)
+  if (escapedTrack) queryParts.push(`track:${escapedTrack}`)
 
   // Require at least one search parameter
   if (queryParts.length === 0) {
