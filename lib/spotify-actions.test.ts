@@ -31,7 +31,9 @@ import {
   saveSongMatch,
   getAISuggestionForSong,
   applyAIFixToSong,
+  searchSpotifyForSong,
 } from './spotify-actions'
+import { searchSpotifyTracks, type SpotifyTrack } from './spotify'
 import { fixMetadataWithAI } from './ai-metadata-fixer'
 import type { MetadataFix } from './ai-metadata-fixer'
 
@@ -395,6 +397,161 @@ describe('Spotify Actions', () => {
         .get(songId.id) as { artist: string }
 
       expect(updated.artist).toBe('Daft Punk')
+    })
+  })
+
+  describe('searchSpotifyForSong', () => {
+    const mockSpotifyTrack = (overrides: Partial<SpotifyTrack> = {}): SpotifyTrack => ({
+      id: 'spotify123',
+      name: 'Hey Jude',
+      artists: [{ name: 'The Beatles' }],
+      album: {
+        name: 'Past Masters',
+        images: [{ url: 'https://example.com/img.jpg', height: 300, width: 300 }],
+      },
+      uri: 'spotify:track:123',
+      ...overrides,
+    })
+
+    it('uses artist+track search when results have similarity >= 50%', async () => {
+      const goodMatch = mockSpotifyTrack({
+        name: 'Hey Jude',
+        artists: [{ name: 'The Beatles' }],
+        album: { name: 'Past Masters', images: [] },
+      })
+
+      vi.mocked(searchSpotifyTracks).mockResolvedValueOnce([goodMatch])
+
+      const result = await searchSpotifyForSong('The Beatles', 'Past Masters', 'Hey Jude')
+
+      expect(result.success).toBe(true)
+      if (result.success) {
+        expect(result.tracks).toHaveLength(1)
+        expect(result.tracks[0].name).toBe('Hey Jude')
+      }
+
+      // Should only be called once (artist+track search)
+      expect(searchSpotifyTracks).toHaveBeenCalledTimes(1)
+      expect(searchSpotifyTracks).toHaveBeenCalledWith({
+        artist: 'The Beatles',
+        track: 'Hey Jude',
+      })
+    })
+
+    it('falls back to track-only search when artist+track returns no results', async () => {
+      const trackOnlyMatch = mockSpotifyTrack({
+        name: 'Hey Jude',
+        artists: [{ name: 'The Beatles' }],
+      })
+
+      // First call (artist+track) returns empty
+      vi.mocked(searchSpotifyTracks).mockResolvedValueOnce([])
+      // Second call (track-only) returns results
+      vi.mocked(searchSpotifyTracks).mockResolvedValueOnce([trackOnlyMatch])
+
+      const result = await searchSpotifyForSong('The Beatles', 'Past Masters', 'Hey Jude')
+
+      expect(result.success).toBe(true)
+      if (result.success) {
+        expect(result.tracks).toHaveLength(1)
+      }
+
+      // Should be called twice (artist+track, then track-only)
+      expect(searchSpotifyTracks).toHaveBeenCalledTimes(2)
+      expect(searchSpotifyTracks).toHaveBeenNthCalledWith(1, {
+        artist: 'The Beatles',
+        track: 'Hey Jude',
+      })
+      expect(searchSpotifyTracks).toHaveBeenNthCalledWith(2, {
+        track: 'Hey Jude',
+      })
+    })
+
+    it('falls back to track-only search when best match similarity is below 50%', async () => {
+      // Poor match from artist+track search (different artist AND different title = very low similarity)
+      // Title "Hey Dude" vs "Hey Jude" has ~80% similarity, but combined with 0% artist
+      // and 0% album, the enhanced similarity will be below 50%
+      const poorMatch = mockSpotifyTrack({
+        name: 'Hey Dude',
+        artists: [{ name: 'Some Cover Band' }],
+        album: { name: 'Tribute Album', images: [] },
+      })
+
+      // Better match from track-only search
+      const goodMatch = mockSpotifyTrack({
+        name: 'Hey Jude',
+        artists: [{ name: 'The Beatles' }],
+        album: { name: 'Past Masters', images: [] },
+      })
+
+      // First call returns poor match
+      vi.mocked(searchSpotifyTracks).mockResolvedValueOnce([poorMatch])
+      // Second call returns better match
+      vi.mocked(searchSpotifyTracks).mockResolvedValueOnce([goodMatch])
+
+      const result = await searchSpotifyForSong('The Beatles', 'Past Masters', 'Hey Jude')
+
+      expect(result.success).toBe(true)
+      if (result.success) {
+        expect(result.tracks).toHaveLength(1)
+        expect(result.tracks[0].artists[0].name).toBe('The Beatles')
+      }
+
+      expect(searchSpotifyTracks).toHaveBeenCalledTimes(2)
+    })
+
+    it('skips artist search when artist is null', async () => {
+      const match = mockSpotifyTrack()
+
+      vi.mocked(searchSpotifyTracks).mockResolvedValueOnce([match])
+
+      const result = await searchSpotifyForSong(null, 'Album', 'Hey Jude')
+
+      expect(result.success).toBe(true)
+
+      // Should only do track-only search when artist is null
+      expect(searchSpotifyTracks).toHaveBeenCalledTimes(1)
+      expect(searchSpotifyTracks).toHaveBeenCalledWith({
+        track: 'Hey Jude',
+      })
+    })
+
+    it('returns error when search fails', async () => {
+      vi.mocked(searchSpotifyTracks).mockRejectedValueOnce(new Error('API Error'))
+
+      const result = await searchSpotifyForSong('Artist', 'Album', 'Track')
+
+      expect(result.success).toBe(false)
+      if (!result.success) {
+        expect(result.error).toBe('API Error')
+      }
+    })
+
+    it('returns combined results when both searches find matches', async () => {
+      // Artist+track search finds poor match
+      const poorMatch = mockSpotifyTrack({
+        id: 'poor1',
+        name: 'Hey Jude',
+        artists: [{ name: 'Cover Artist' }],
+      })
+
+      // Track-only search finds additional matches
+      const goodMatch = mockSpotifyTrack({
+        id: 'good1',
+        name: 'Hey Jude',
+        artists: [{ name: 'The Beatles' }],
+      })
+
+      vi.mocked(searchSpotifyTracks).mockResolvedValueOnce([poorMatch])
+      vi.mocked(searchSpotifyTracks).mockResolvedValueOnce([goodMatch])
+
+      const result = await searchSpotifyForSong('The Beatles', 'Past Masters', 'Hey Jude')
+
+      expect(result.success).toBe(true)
+      if (result.success) {
+        // Should return results from fallback search when primary has poor matches
+        expect(result.tracks.length).toBeGreaterThan(0)
+      }
     })
   })
 })
