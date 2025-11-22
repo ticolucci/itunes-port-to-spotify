@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef, useReducer } from 'react'
+import { useEffect, useCallback, useReducer } from 'react'
 import { Loader2, Check } from 'lucide-react'
 import type { Song } from '@/lib/schema'
 import type { SpotifyTrack } from '@/lib/spotify'
@@ -21,32 +21,28 @@ import {
   getEligibleAutoMatchSongs,
   findNextReviewableIndex,
 } from '@/lib/song-matcher-utils'
-import { songsReducer } from './state/songsReducer'
+import { matcherReducer, initialMatcherState } from './state/matcherReducer'
 import { batchSearchSongs } from '@/lib/batch-search'
 
-interface DebugInfo {
-  query: string
-  trackCount: number
-  topResults: Array<{ name: string; artist: string; album: string }>
-}
-
 export default function SpotifyMatcherPage() {
-  const [currentArtist, setCurrentArtist] = useState<string | null>(null)
-  const [songsWithMatches, dispatchSongs] = useReducer(songsReducer, [])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [matchingIds, setMatchingIds] = useState<Set<number>>(new Set())
-  const [currentReviewIndex, setCurrentReviewIndex] = useState(0)
-  const [autoMatchEnabled, setAutoMatchEnabled] = useState(false)
-  const processedAutoMatches = useRef<Set<number>>(new Set())
-  const autoMatchInProgress = useRef(false)
-  const [debugInfo, setDebugInfo] = useState<DebugInfo | null>(null)
+  const [state, dispatch] = useReducer(matcherReducer, initialMatcherState)
+
+  const {
+    currentArtist,
+    songs: songsWithMatches,
+    loading,
+    error,
+    matchingIds,
+    currentReviewIndex,
+    autoMatchEnabled,
+    processedAutoMatches,
+    autoMatchInProgress,
+    debugInfo,
+  } = state
 
   const loadRandomArtist = useCallback(async () => {
     try {
-      setLoading(true)
-      setError(null)
-      processedAutoMatches.current.clear() // Reset tracking when loading new artist
+      dispatch({ type: 'LOAD_ARTIST_START' })
 
       // Check for song ID query param (songId or test_song_id for E2E testing)
       const params = new URLSearchParams(window.location.search)
@@ -58,29 +54,27 @@ export default function SpotifyMatcherPage() {
       )
 
       if (!randomSongResult.success) {
-        setError(randomSongResult.error)
-        setLoading(false)
+        dispatch({ type: 'LOAD_ARTIST_ERROR', payload: { error: randomSongResult.error } })
         return
       }
 
       const randomSong = randomSongResult.song
-      setCurrentArtist(randomSong.artist)
 
       // 2. Get all songs by this artist
       const songsResult = await getSongsByArtist(randomSong.artist)
 
       if (!songsResult.success) {
-        setError(songsResult.error)
-        setLoading(false)
+        dispatch({ type: 'LOAD_ARTIST_ERROR', payload: { error: songsResult.error } })
         return
       }
 
       // 3. Initialize songs with empty matches
       const initialSongs = createInitialSongs(songsResult.songs)
 
-      dispatchSongs({ type: 'SET_SONGS', payload: initialSongs })
-      setLoading(false)
-      setCurrentReviewIndex(0) // Reset review index
+      dispatch({
+        type: 'LOAD_ARTIST_SUCCESS',
+        payload: { artist: randomSong.artist, songs: initialSongs },
+      })
 
       // 4. Search for Spotify matches with rate limiting
       // Uses bottleneck to limit concurrent requests and prevent Spotify API rate limiting
@@ -89,13 +83,15 @@ export default function SpotifyMatcherPage() {
           console.error(`Failed to search for song ${song.id}:`, err)
         },
       })
-        } catch (err) {
+    } catch (err) {
       console.error('Error loading artist:', err)
-      setError(err instanceof Error ? err.message : 'Unknown error')
-      setLoading(false)
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps -- Only run on mount, searchForMatch is stable
-      }, [])
+      dispatch({
+        type: 'LOAD_ARTIST_ERROR',
+        payload: { error: err instanceof Error ? err.message : 'Unknown error' },
+      })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Only run on mount, searchForMatch is stable
+  }, [])
 
   useEffect(() => {
     loadRandomArtist()
@@ -131,9 +127,9 @@ export default function SpotifyMatcherPage() {
     if (!spotifyId) return false
 
     // Update state using reducer action
-    dispatchSongs({
-      type: 'AUTO_MATCH',
-      payload: { songId, spotifyMatch, similarity, spotifyId, allMatches }
+    dispatch({
+      type: 'AUTO_MATCH_SONG',
+      payload: { songId, spotifyMatch, similarity, spotifyId, allMatches },
     })
 
     return true
@@ -145,48 +141,55 @@ export default function SpotifyMatcherPage() {
 
     async function autoMatchEligibleSongs() {
       // Prevent race conditions - only one auto-match process at a time
-      if (autoMatchInProgress.current) return
-      autoMatchInProgress.current = true
+      if (autoMatchInProgress) return
+      dispatch({ type: 'SET_AUTO_MATCH_IN_PROGRESS', payload: true })
 
       try {
         // Filter songs we haven't processed yet
         const eligibleSongs = getEligibleAutoMatchSongs(
           songsWithMatches,
           matchingIds,
-          processedAutoMatches.current
+          processedAutoMatches
         )
 
         // Mark as processed BEFORE async operations to prevent duplicates
-        eligibleSongs.forEach((s) => processedAutoMatches.current.add(s.dbSong.id))
+        if (eligibleSongs.length > 0) {
+          dispatch({
+            type: 'ADD_PROCESSED_AUTO_MATCHES',
+            payload: eligibleSongs.map((s) => s.dbSong.id),
+          })
+        }
 
         // Collect all successful matches
         const matchResults = new Map<number, { spotifyMatch: SpotifyTrack; similarity: number }>()
 
-        await Promise.all(eligibleSongs.map(async (songWithMatch) => {
-          const spotifyId = await attemptAutoMatch(
-            songWithMatch.dbSong.id,
-            songWithMatch.spotifyMatch!.id,
-            songWithMatch.similarity
-          )
-          if (spotifyId) {
-            matchResults.set(songWithMatch.dbSong.id, {
-              spotifyMatch: songWithMatch.spotifyMatch!,
-              similarity: songWithMatch.similarity,
-            })
-          }
-        }))
+        await Promise.all(
+          eligibleSongs.map(async (songWithMatch) => {
+            const spotifyId = await attemptAutoMatch(
+              songWithMatch.dbSong.id,
+              songWithMatch.spotifyMatch!.id,
+              songWithMatch.similarity
+            )
+            if (spotifyId) {
+              matchResults.set(songWithMatch.dbSong.id, {
+                spotifyMatch: songWithMatch.spotifyMatch!,
+                similarity: songWithMatch.similarity,
+              })
+            }
+          })
+        )
 
         // Single batched state update for all successful matches
         if (matchResults.size > 0) {
-          dispatchSongs({ type: 'BATCH_MATCH', payload: matchResults })
+          dispatch({ type: 'BATCH_MATCH_SONGS', payload: matchResults })
         }
       } finally {
-        autoMatchInProgress.current = false
+        dispatch({ type: 'SET_AUTO_MATCH_IN_PROGRESS', payload: false })
       }
     }
 
     autoMatchEligibleSongs()
-  }, [autoMatchEnabled, songsWithMatches, matchingIds, attemptAutoMatch])
+  }, [autoMatchEnabled, songsWithMatches, matchingIds, processedAutoMatches, autoMatchInProgress, attemptAutoMatch])
 
   async function searchForMatch(song: Song) {
     // Skip songs without titles (defensive check)
@@ -195,52 +198,58 @@ export default function SpotifyMatcherPage() {
     }
 
     // Update searching state
-    dispatchSongs({ type: 'SET_SEARCHING', payload: { songId: song.id, searching: true } })
+    dispatch({ type: 'SET_SONG_SEARCHING', payload: { songId: song.id, searching: true } })
 
     try {
       const result = await searchSpotifyForSong(song.artist, song.album, song.title)
 
       if (result.success && result.tracks.length > 0) {
         // Calculate enhanced similarity for ALL results and sort by best match
-        const tracksWithSimilarity = result.tracks.map(track => ({
+        const tracksWithSimilarity = result.tracks.map((track) => ({
           track,
           similarity: calculateEnhancedSimilarity(
             {
               artist: song.artist,
               title: song.title,
-              album: song.album
+              album: song.album,
             },
             {
               artist: track.artists[0]?.name || null,
               title: track.name,
-              album: track.album.name
+              album: track.album.name,
             }
-          )
+          ),
         }))
 
         // Sort by similarity (descending) - best matches first
         tracksWithSimilarity.sort((a, b) => b.similarity - a.similarity)
 
         // DEBUG: Log search results with similarity scores
-        console.log('[SPOTIFY RESULTS]', JSON.stringify({
-          totalTracks: tracksWithSimilarity.length,
-          top5: tracksWithSimilarity.slice(0, 5).map(t => ({
-            name: t.track.name,
-            artist: t.track.artists[0]?.name,
-            album: t.track.album.name,
-            similarity: t.similarity
-          }))
-        }))
+        console.log(
+          '[SPOTIFY RESULTS]',
+          JSON.stringify({
+            totalTracks: tracksWithSimilarity.length,
+            top5: tracksWithSimilarity.slice(0, 5).map((t) => ({
+              name: t.track.name,
+              artist: t.track.artists[0]?.name,
+              album: t.track.album.name,
+              similarity: t.similarity,
+            })),
+          })
+        )
 
         // Update debug UI
-        setDebugInfo({
-          query: `track:${song.title}`,
-          trackCount: tracksWithSimilarity.length,
-          topResults: tracksWithSimilarity.slice(0, 3).map(t => ({
-            name: t.track.name,
-            artist: t.track.artists[0]?.name || '',
-            album: t.track.album.name
-          }))
+        dispatch({
+          type: 'SET_DEBUG_INFO',
+          payload: {
+            query: `track:${song.title}`,
+            trackCount: tracksWithSimilarity.length,
+            topResults: tracksWithSimilarity.slice(0, 3).map((t) => ({
+              name: t.track.name,
+              artist: t.track.artists[0]?.name || '',
+              album: t.track.album.name,
+            })),
+          },
         })
 
         // Use best match (highest similarity)
@@ -248,127 +257,115 @@ export default function SpotifyMatcherPage() {
         const similarity = tracksWithSimilarity[0].similarity
 
         // Store all matches for the user to choose from
-        const allMatches = tracksWithSimilarity.map(t => ({
+        const allMatches = tracksWithSimilarity.map((t) => ({
           track: t.track,
-          similarity: t.similarity
+          similarity: t.similarity,
         }))
 
         // DEBUG: Log best match
-        console.log('[BEST MATCH]', JSON.stringify({
-          local: { artist: song.artist, title: song.title, album: song.album },
-          spotify: {
-            artist: bestMatch.artists[0]?.name,
-            title: bestMatch.name,
-            album: bestMatch.album.name
-          },
-          similarity
-        }))
+        console.log(
+          '[BEST MATCH]',
+          JSON.stringify({
+            local: { artist: song.artist, title: song.title, album: song.album },
+            spotify: {
+              artist: bestMatch.artists[0]?.name,
+              title: bestMatch.name,
+              album: bestMatch.album.name,
+            },
+            similarity,
+          })
+        )
 
         // Try auto-match (will only succeed if enabled and similarity >= 80%)
-        const wasAutoMatched = await attemptAutoMatchAndUpdateState(song.id, bestMatch, similarity, allMatches)
+        const wasAutoMatched = await attemptAutoMatchAndUpdateState(
+          song.id,
+          bestMatch,
+          similarity,
+          allMatches
+        )
 
         // If not auto-matched, update state with manual match option
         if (!wasAutoMatched) {
-          dispatchSongs({
-            type: 'UPDATE_MATCH',
-            payload: { songId: song.id, spotifyMatch: bestMatch, similarity, allMatches }
+          dispatch({
+            type: 'UPDATE_SONG_MATCH',
+            payload: { songId: song.id, spotifyMatch: bestMatch, similarity, allMatches },
           })
         }
       } else {
-        console.log('[NO MATCH]', JSON.stringify({ songId: song.id, artist: song.artist, title: song.title }))
-        dispatchSongs({ type: 'SET_SEARCHING', payload: { songId: song.id, searching: false } })
+        console.log(
+          '[NO MATCH]',
+          JSON.stringify({ songId: song.id, artist: song.artist, title: song.title })
+        )
+        dispatch({ type: 'SET_SONG_SEARCHING', payload: { songId: song.id, searching: false } })
       }
     } catch (err) {
       console.error('Error searching for match:', JSON.stringify(err))
-      dispatchSongs({ type: 'SET_SEARCHING', payload: { songId: song.id, searching: false } })
+      dispatch({ type: 'SET_SONG_SEARCHING', payload: { songId: song.id, searching: false } })
     }
   }
 
   async function handleMatch(songId: number, spotifyId: string) {
     try {
-      setMatchingIds((prev) => new Set(prev).add(songId))
+      dispatch({ type: 'ADD_MATCHING_ID', payload: songId })
 
       const result = await saveSongMatch(songId, spotifyId)
 
       if (!result.success) {
         alert(`Error: ${result.error}`)
-        setMatchingIds((prev) => {
-          const next = new Set(prev)
-          next.delete(songId)
-          return next
-        })
+        dispatch({ type: 'REMOVE_MATCHING_ID', payload: songId })
         return
       }
 
       // Update local state to mark as matched
-      dispatchSongs({ type: 'MARK_MATCHED', payload: { songId, spotifyId } })
-
-      setMatchingIds((prev) => {
-        const next = new Set(prev)
-        next.delete(songId)
-        return next
-      })
+      dispatch({ type: 'MARK_SONG_MATCHED', payload: { songId, spotifyId } })
+      dispatch({ type: 'REMOVE_MATCHING_ID', payload: songId })
     } catch (err) {
       console.error('Error saving match:', err)
       alert('Failed to save match')
-      setMatchingIds((prev) => {
-        const next = new Set(prev)
-        next.delete(songId)
-        return next
-      })
+      dispatch({ type: 'REMOVE_MATCHING_ID', payload: songId })
     }
   }
 
   async function handleReviewMatch(songId: number, spotifyId: string) {
     await handleMatch(songId, spotifyId)
     // Move to next song in review
-    setCurrentReviewIndex((prev) => prev + 1)
+    dispatch({ type: 'INCREMENT_REVIEW_INDEX' })
   }
 
   function handleSkip() {
     // Just move to next song without saving
-    setCurrentReviewIndex((prev) => prev + 1)
+    dispatch({ type: 'INCREMENT_REVIEW_INDEX' })
   }
 
   async function handleUndo(songId: number) {
     try {
-      setMatchingIds((prev) => new Set(prev).add(songId))
+      dispatch({ type: 'ADD_MATCHING_ID', payload: songId })
 
       const result = await clearSongMatch(songId)
 
       if (!result.success) {
         alert(`Error: ${result.error}`)
-        setMatchingIds((prev) => {
-          const next = new Set(prev)
-          next.delete(songId)
-          return next
-        })
+        dispatch({ type: 'REMOVE_MATCHING_ID', payload: songId })
         return
       }
 
       // Update local state to mark as unmatched
-      dispatchSongs({ type: 'CLEAR_MATCH', payload: { songId } })
-
-      setMatchingIds((prev) => {
-        const next = new Set(prev)
-        next.delete(songId)
-        return next
-      })
+      dispatch({ type: 'CLEAR_SONG_MATCH', payload: { songId } })
+      dispatch({ type: 'REMOVE_MATCHING_ID', payload: songId })
     } catch (err) {
       console.error('Error undoing match:', err)
       alert('Failed to undo match')
-      setMatchingIds((prev) => {
-        const next = new Set(prev)
-        next.delete(songId)
-        return next
-      })
+      dispatch({ type: 'REMOVE_MATCHING_ID', payload: songId })
     }
   }
 
-  function handleSongUpdate(songId: number, update: { artist: string; title: string; album: string | null }) {
-    dispatchSongs({
+  function handleSongUpdate(
+    songId: number,
+    update: { artist: string; title: string; album: string | null }
+  ) {
+    dispatch({
       type: 'UPDATE_SONG_METADATA',
-      payload: { songId, ...update }
+      payload: { songId, ...update },
     })
   }
 
@@ -399,9 +396,7 @@ export default function SpotifyMatcherPage() {
       <div className="container mx-auto py-8">
         <div className="text-center">
           <h1 className="text-3xl font-bold mb-4">All Songs Matched!</h1>
-          <p className="text-muted-foreground">
-            No unmatched songs found.
-          </p>
+          <p className="text-muted-foreground">No unmatched songs found.</p>
         </div>
       </div>
     )
@@ -423,24 +418,26 @@ export default function SpotifyMatcherPage() {
           <input
             type="checkbox"
             checked={autoMatchEnabled}
-            onChange={(e) => setAutoMatchEnabled(e.target.checked)}
+            onChange={(e) => dispatch({ type: 'SET_AUTO_MATCH_ENABLED', payload: e.target.checked })}
             aria-label="Auto-match songs with similarity >= 80%"
             className="w-4 h-4"
           />
           <span className="text-sm">Auto-match (≥80%)</span>
         </label>
       </div>
-      <p className="text-muted-foreground mb-8">
-        Match your iTunes songs with Spotify tracks
-      </p>
+      <p className="text-muted-foreground mb-8">Match your iTunes songs with Spotify tracks</p>
 
       {/* DEBUG PANEL */}
       {debugInfo && (
-        <div data-testid="debug-panel" className="mb-8 p-4 border-2 border-yellow-300 rounded-lg bg-yellow-50">
-          <h3 className="font-bold text-yellow-900 mb-2">🐛 DEBUG: Spotify Search</h3>
+        <div
+          data-testid="debug-panel"
+          className="mb-8 p-4 border-2 border-yellow-300 rounded-lg bg-yellow-50"
+        >
+          <h3 className="font-bold text-yellow-900 mb-2">DEBUG: Spotify Search</h3>
           <div className="text-sm space-y-2">
             <div>
-              <span className="font-semibold">Query:</span> <code className="bg-yellow-100 px-1">{debugInfo.query}</code>
+              <span className="font-semibold">Query:</span>{' '}
+              <code className="bg-yellow-100 px-1">{debugInfo.query}</code>
             </div>
             <div>
               <span className="font-semibold">Results Found:</span> {debugInfo.trackCount}
@@ -459,7 +456,7 @@ export default function SpotifyMatcherPage() {
             )}
             {debugInfo.trackCount === 0 && (
               <div className="text-red-700 font-semibold">
-                ⚠️ NO RESULTS - Search may be too restrictive!
+                NO RESULTS - Search may be too restrictive!
               </div>
             )}
           </div>
@@ -483,7 +480,9 @@ export default function SpotifyMatcherPage() {
         <div className="mb-8 p-6 border-2 border-green-200 rounded-lg bg-green-50 text-center">
           <Check className="h-8 w-8 text-green-600 mx-auto mb-2" />
           <p className="font-semibold text-green-900">Review Complete!</p>
-          <p className="text-sm text-green-700">All songs have been reviewed. You can still use the table below to make changes.</p>
+          <p className="text-sm text-green-700">
+            All songs have been reviewed. You can still use the table below to make changes.
+          </p>
         </div>
       )}
 
