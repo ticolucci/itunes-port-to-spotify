@@ -5,7 +5,7 @@ import { songs as songsTable, type Song } from './schema'
 import { eq, and, isNull, isNotNull, sql } from 'drizzle-orm'
 import { searchSpotifyTracks, type SpotifyTrack } from './spotify'
 import { fixMetadataWithAI, type MetadataFix } from './ai-metadata-fixer'
-import { calculateEnhancedSimilarity } from './enhanced-similarity'
+import { getBestTrackSimilarity } from './track-similarity'
 import { mapRowToSong } from './mappers'
 
 export type ActionResult<T> =
@@ -253,35 +253,6 @@ export async function getNextUnmatchedAlbum(): Promise<
 }
 
 /**
- * Calculate the best similarity score for a list of Spotify tracks
- * compared to the local song metadata.
- */
-function getBestSimilarity(
-  tracks: SpotifyTrack[],
-  artist: string | null,
-  album: string | null,
-  track: string | null
-): number {
-  if (tracks.length === 0) return 0
-
-  let bestSimilarity = 0
-  for (const spotifyTrack of tracks) {
-    const similarity = calculateEnhancedSimilarity(
-      { artist, title: track, album },
-      {
-        artist: spotifyTrack.artists[0]?.name || null,
-        title: spotifyTrack.name,
-        album: spotifyTrack.album.name,
-      }
-    )
-    if (similarity > bestSimilarity) {
-      bestSimilarity = similarity
-    }
-  }
-  return bestSimilarity
-}
-
-/**
  * Search Spotify for a specific song.
  * First tries artist+track search for precision. If no results or
  * best match similarity is below 50%, falls back to track-only search
@@ -308,7 +279,7 @@ export async function searchSpotifyForSong(
     })
 
     // Check if we got good results
-    const bestSimilarity = getBestSimilarity(artistTrackResults, artist, album, track)
+    const bestSimilarity = getBestTrackSimilarity(artistTrackResults, { artist, title: track, album })
 
     // If we have results with similarity >= 50%, use them
     if (artistTrackResults.length > 0 && bestSimilarity >= 50) {
