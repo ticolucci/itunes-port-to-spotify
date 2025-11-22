@@ -226,6 +226,7 @@ jobs:
           vercel deploy --prebuilt --token=$VERCEL_TOKEN \
             -e TURSO_DATABASE_URL="${{ env.BRANCH_DB_URL }}" \
             -e TURSO_AUTH_TOKEN="${{ env.BRANCH_DB_TOKEN }}" \
+            -e VERCEL_AUTOMATION_BYPASS_SECRET="${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}" \
             | tee deploy-output.txt
 
           # Extract deployment URL
