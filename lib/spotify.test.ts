@@ -11,6 +11,12 @@ vi.mock('@spotify/web-api-ts-sdk', () => ({
   },
 }))
 
+// Mock the cache module to always miss (for testing API calls)
+vi.mock('./spotify-cache', () => ({
+  getCachedSearch: vi.fn().mockResolvedValue(null),
+  setCachedSearch: vi.fn().mockResolvedValue(undefined),
+}))
+
 import { SpotifyApi } from '@spotify/web-api-ts-sdk'
 
 describe('Spotify Client', () => {
