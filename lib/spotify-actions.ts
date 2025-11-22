@@ -5,6 +5,7 @@ import { songs as songsTable, type Song } from './schema'
 import { eq, and, isNull, isNotNull, sql } from 'drizzle-orm'
 import { searchSpotifyTracks, type SpotifyTrack } from './spotify'
 import { fixMetadataWithAI, type MetadataFix } from './ai-metadata-fixer'
+import { calculateEnhancedSimilarity } from './enhanced-similarity'
 
 export type ActionResult<T> =
   | { success: true } & T
@@ -301,9 +302,39 @@ export async function getNextUnmatchedAlbum(): Promise<
 }
 
 /**
- * Search Spotify for a specific song using track-only query.
- * Uses relaxed search (title only) and relies on enhanced similarity
- * algorithm to rank results by artist/album matching.
+ * Calculate the best similarity score for a list of Spotify tracks
+ * compared to the local song metadata.
+ */
+function getBestSimilarity(
+  tracks: SpotifyTrack[],
+  artist: string | null,
+  album: string | null,
+  track: string | null
+): number {
+  if (tracks.length === 0) return 0
+
+  let bestSimilarity = 0
+  for (const spotifyTrack of tracks) {
+    const similarity = calculateEnhancedSimilarity(
+      { artist, title: track, album },
+      {
+        artist: spotifyTrack.artists[0]?.name || null,
+        title: spotifyTrack.name,
+        album: spotifyTrack.album.name,
+      }
+    )
+    if (similarity > bestSimilarity) {
+      bestSimilarity = similarity
+    }
+  }
+  return bestSimilarity
+}
+
+/**
+ * Search Spotify for a specific song.
+ * First tries artist+track search for precision. If no results or
+ * best match similarity is below 50%, falls back to track-only search
+ * for broader coverage.
  */
 export async function searchSpotifyForSong(
   artist: string | null,
@@ -311,16 +342,34 @@ export async function searchSpotifyForSong(
   track: string | null
 ): Promise<ActionResult<{ tracks: SpotifyTrack[] }>> {
   try {
-    // Use track-only search for maximum results
-    // Enhanced similarity will filter/rank by artist and album
-    const tracks = await searchSpotifyTracks({
-      track: track || undefined
+    // If no artist, go straight to track-only search
+    if (!artist) {
+      const tracks = await searchSpotifyTracks({
+        track: track || undefined,
+      })
+      return { success: true, tracks }
+    }
+
+    // First try: artist + track search for precision
+    const artistTrackResults = await searchSpotifyTracks({
+      artist,
+      track: track || undefined,
     })
 
-    return {
-      success: true,
-      tracks,
+    // Check if we got good results
+    const bestSimilarity = getBestSimilarity(artistTrackResults, artist, album, track)
+
+    // If we have results with similarity >= 50%, use them
+    if (artistTrackResults.length > 0 && bestSimilarity >= 50) {
+      return { success: true, tracks: artistTrackResults }
     }
+
+    // Fallback: track-only search for broader coverage
+    const trackOnlyResults = await searchSpotifyTracks({
+      track: track || undefined,
+    })
+
+    return { success: true, tracks: trackOnlyResults }
   } catch (error) {
     console.error('[SEARCH_SONG_ERROR]', JSON.stringify({
       localSong: {
