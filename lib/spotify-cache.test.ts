@@ -11,6 +11,7 @@ import { getDatabase } from './db'
 import {
   getCachedSearch,
   setCachedSearch,
+  clearExpiredCache,
   generateCacheKey,
   isCacheExpired,
   CACHE_TTL_MS,
@@ -195,6 +196,42 @@ describe('Spotify Search Cache', () => {
   describe('CACHE_TTL_MS', () => {
     it('is set to 30 days (in milliseconds)', () => {
       expect(CACHE_TTL_MS).toBe(30 * 24 * 60 * 60 * 1000)
+    })
+  })
+
+  describe('clearExpiredCache', () => {
+    it('deletes entries older than TTL and returns count of deleted rows', async () => {
+      const mockWhere = vi.fn().mockResolvedValue({ rowsAffected: 5 })
+      const mockDelete = vi.fn().mockReturnValue({
+        where: mockWhere,
+      })
+      mockDb.delete.mockImplementation(mockDelete)
+
+      const result = await clearExpiredCache()
+
+      expect(mockDb.delete).toHaveBeenCalled()
+      expect(mockWhere).toHaveBeenCalled()
+      expect(result).toBe(5)
+    })
+
+    it('returns 0 when no expired entries exist', async () => {
+      const mockWhere = vi.fn().mockResolvedValue({ rowsAffected: 0 })
+      mockDb.delete.mockReturnValue({
+        where: mockWhere,
+      })
+
+      const result = await clearExpiredCache()
+      expect(result).toBe(0)
+    })
+
+    it('returns 0 when rowsAffected is undefined', async () => {
+      const mockWhere = vi.fn().mockResolvedValue({})
+      mockDb.delete.mockReturnValue({
+        where: mockWhere,
+      })
+
+      const result = await clearExpiredCache()
+      expect(result).toBe(0)
     })
   })
 })
