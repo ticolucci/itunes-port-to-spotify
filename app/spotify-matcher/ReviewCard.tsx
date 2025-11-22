@@ -1,17 +1,7 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Loader2, Check, X, Music, ChevronDown, ChevronUp } from 'lucide-react'
-import type { Song } from '@/lib/schema'
-import type { SpotifyTrack } from '@/lib/spotify'
-
-interface SongWithMatch {
-  dbSong: Song
-  spotifyMatch: SpotifyTrack | null
-  similarity: number
-  isMatched: boolean
-  searching: boolean
-  allMatches?: Array<{ track: SpotifyTrack; similarity: number }>
-}
+import type { SongWithMatch } from '@/lib/song-matcher-utils'
 
 interface ReviewCardProps {
   currentReview: SongWithMatch
