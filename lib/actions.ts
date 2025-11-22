@@ -3,6 +3,7 @@
 import { getDatabase } from "@/lib/db";
 import { songs as songsTable, type Song } from "@/lib/schema";
 import { asc, count, isNull, isNotNull, and, sql, type SQL } from "drizzle-orm";
+import { mapRowToSong } from "./mappers";
 
 export interface SongFilters {
   title?: string;
@@ -65,16 +66,7 @@ export async function fetchSongs(options?: {
         : orderedQuery
     );
 
-    // Map database rows to Song objects
-    const songs: Song[] = rows.map((row) => ({
-      id: row.id,
-      title: row.title,
-      artist: row.artist,
-      album: row.album,
-      album_artist: row.album_artist,
-      filename: row.filename,
-      spotify_id: row.spotify_id,
-    }));
+    const songs = rows.map(mapRowToSong);
 
     return {
       success: true,
