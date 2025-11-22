@@ -363,6 +363,13 @@ export default function SpotifyMatcherPage() {
     }
   }
 
+  function handleSongUpdate(songId: number, update: { artist: string; title: string; album: string | null }) {
+    dispatchSongs({
+      type: 'UPDATE_SONG_METADATA',
+      payload: { songId, ...update }
+    })
+  }
+
   if (loading) {
     return (
       <div className="container mx-auto py-8">
@@ -495,6 +502,7 @@ export default function SpotifyMatcherPage() {
             isMatching={matchingIds.has(songWithMatch.dbSong.id)}
             onMatch={handleMatch}
             onUndo={handleUndo}
+            onSongUpdate={handleSongUpdate}
           />
         ))}
       </div>

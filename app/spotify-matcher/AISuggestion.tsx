@@ -9,7 +9,7 @@ import { getAISuggestionForSong, applyAIFixToSong } from '@/lib/spotify-actions'
 
 interface AISuggestionProps {
   song: Song
-  onFixApplied?: () => void
+  onFixApplied?: (updatedSong: { artist: string; title: string; album: string | null }) => void
 }
 
 export function AISuggestion({ song, onFixApplied }: AISuggestionProps) {
@@ -54,8 +54,13 @@ export function AISuggestion({ song, onFixApplied }: AISuggestionProps) {
         return
       }
 
-      // Notify parent component
-      onFixApplied?.()
+      // Close the suggestion UI and notify parent with updated metadata
+      dismiss()
+      onFixApplied?.({
+        artist: suggestion.suggestedArtist,
+        title: suggestion.suggestedTrack,
+        album: suggestion.suggestedAlbum || song.album,
+      })
     } catch (err) {
       console.error('Error applying AI fix:', err)
       alert('Failed to apply fix')
