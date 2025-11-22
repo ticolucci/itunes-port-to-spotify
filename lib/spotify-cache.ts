@@ -1,6 +1,6 @@
 import { getDatabase } from './db'
 import { spotifySearchCache } from './schema'
-import { eq } from 'drizzle-orm'
+import { eq, lt } from 'drizzle-orm'
 import type { SpotifyTrack, SpotifySearchParams } from './spotify'
 
 /**
@@ -124,7 +124,7 @@ export async function clearExpiredCache(): Promise<number> {
 
   const result = await db
     .delete(spotifySearchCache)
-    .where(eq(spotifySearchCache.created_at, expiredBefore))
+    .where(lt(spotifySearchCache.created_at, expiredBefore))
 
   return result.rowsAffected ?? 0
 }
