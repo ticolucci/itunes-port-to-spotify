@@ -6,6 +6,7 @@ import { eq, and, isNull, isNotNull, sql } from 'drizzle-orm'
 import { searchSpotifyTracks, type SpotifyTrack } from './spotify'
 import { fixMetadataWithAI, type MetadataFix } from './ai-metadata-fixer'
 import { calculateEnhancedSimilarity } from './enhanced-similarity'
+import { mapRowToSong } from './mappers'
 
 export type ActionResult<T> =
   | { success: true } & T
@@ -35,19 +36,9 @@ export async function getNextUnmatchedSong(): Promise<
       }
     }
 
-    const song: Song = {
-      id: row.id,
-      title: row.title,
-      artist: row.artist,
-      album: row.album,
-      album_artist: row.album_artist,
-      filename: row.filename,
-      spotify_id: row.spotify_id,
-    }
-
     return {
       success: true,
-      song,
+      song: mapRowToSong(row),
     }
   } catch (error) {
     console.error('Error fetching unmatched song:', error)
@@ -87,19 +78,9 @@ export async function getRandomUnmatchedSong(
         }
       }
 
-      const song: Song = {
-        id: row.id,
-        title: row.title,
-        artist: row.artist,
-        album: row.album,
-        album_artist: row.album_artist,
-        filename: row.filename,
-        spotify_id: row.spotify_id,
-      }
-
       return {
         success: true,
-        song,
+        song: mapRowToSong(row),
       }
     }
 
@@ -126,19 +107,9 @@ export async function getRandomUnmatchedSong(
       }
     }
 
-    const song: Song = {
-      id: row.id,
-      title: row.title,
-      artist: row.artist,
-      album: row.album,
-      album_artist: row.album_artist,
-      filename: row.filename,
-      spotify_id: row.spotify_id,
-    }
-
     return {
       success: true,
-      song,
+      song: mapRowToSong(row),
     }
   } catch (error) {
     console.error('Error fetching random unmatched song:', error)
@@ -170,19 +141,9 @@ export async function getSongsByArtist(
       )
       .orderBy(songsTable.album, songsTable.title)
 
-    const songs: Song[] = rows.map((row) => ({
-      id: row.id,
-      title: row.title,
-      artist: row.artist,
-      album: row.album,
-      album_artist: row.album_artist,
-      filename: row.filename,
-      spotify_id: row.spotify_id,
-    }))
-
     return {
       success: true,
-      songs,
+      songs: rows.map(mapRowToSong),
     }
   } catch (error) {
     console.error('Error fetching songs by artist:', error)
@@ -240,19 +201,9 @@ export async function getSongsByAlbum(
       )
       .orderBy(songsTable.title)
 
-    const songs: Song[] = rows.map((row) => ({
-      id: row.id,
-      title: row.title,
-      artist: row.artist,
-      album: row.album,
-      album_artist: row.album_artist,
-      filename: row.filename,
-      spotify_id: row.spotify_id,
-    }))
-
     return {
       success: true,
-      songs,
+      songs: rows.map(mapRowToSong),
     }
   } catch (error) {
     console.error('Error fetching songs by album:', error)
@@ -489,15 +440,7 @@ export async function getAISuggestionForSong(
       }
     }
 
-    const song: Song = {
-      id: songs[0].id,
-      title: songs[0].title,
-      artist: songs[0].artist,
-      album: songs[0].album,
-      album_artist: songs[0].album_artist,
-      filename: songs[0].filename,
-      spotify_id: songs[0].spotify_id,
-    }
+    const song = mapRowToSong(songs[0])
 
     // Get AI suggestion
     const suggestion = await fixMetadataWithAI(song)
