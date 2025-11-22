@@ -15,7 +15,7 @@ import { ReviewCard } from './ReviewCard'
 import { SongTableRow } from './components/SongTableRow'
 import { ArtistHeader } from './components/ArtistHeader'
 import { DebugPanel } from './components/DebugPanel'
-import { calculateEnhancedSimilarity } from '@/lib/enhanced-similarity'
+import { calculateTracksWithSimilarity, sortTracksBySimilarity } from '@/lib/track-similarity'
 import {
   shouldSkipSong,
   createInitialSongs,
@@ -206,24 +206,13 @@ export default function SpotifyMatcherPage() {
 
       if (result.success && result.tracks.length > 0) {
         // Calculate enhanced similarity for ALL results and sort by best match
-        const tracksWithSimilarity = result.tracks.map((track) => ({
-          track,
-          similarity: calculateEnhancedSimilarity(
-            {
-              artist: song.artist,
-              title: song.title,
-              album: song.album,
-            },
-            {
-              artist: track.artists[0]?.name || null,
-              title: track.name,
-              album: track.album.name,
-            }
-          ),
-        }))
-
-        // Sort by similarity (descending) - best matches first
-        tracksWithSimilarity.sort((a, b) => b.similarity - a.similarity)
+        const tracksWithSimilarity = sortTracksBySimilarity(
+          calculateTracksWithSimilarity(result.tracks, {
+            artist: song.artist,
+            title: song.title,
+            album: song.album,
+          })
+        )
 
         // DEBUG: Log search results with similarity scores
         console.log(
