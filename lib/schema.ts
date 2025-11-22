@@ -34,3 +34,18 @@ export const songs = sqliteTable(
  */
 export type Song = typeof songs.$inferSelect;
 export type NewSong = typeof songs.$inferInsert;
+
+/**
+ * Spotify search cache table schema
+ *
+ * Caches Spotify API search results to reduce API calls and improve performance.
+ * Uses manual TTL - created_at timestamp is checked against configured TTL on read.
+ */
+export const spotifySearchCache = sqliteTable("spotify_search_cache", {
+  cache_key: text("cache_key").primaryKey(),
+  results: text("results").notNull(), // JSON serialized SpotifyTrack[]
+  created_at: integer("created_at").notNull(), // Unix timestamp in milliseconds
+});
+
+export type SpotifySearchCacheEntry = typeof spotifySearchCache.$inferSelect;
+export type NewSpotifySearchCacheEntry = typeof spotifySearchCache.$inferInsert;
