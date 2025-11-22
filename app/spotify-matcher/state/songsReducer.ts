@@ -9,6 +9,7 @@ export type SongsAction =
   | { type: 'MARK_MATCHED'; payload: { songId: number; spotifyId: string } }
   | { type: 'BATCH_MATCH'; payload: Map<number, { spotifyMatch: SpotifyTrack; similarity: number }> }
   | { type: 'CLEAR_MATCH'; payload: { songId: number } }
+  | { type: 'UPDATE_SONG_METADATA'; payload: { songId: number; artist: string; title: string; album: string | null } }
 
 export function songsReducer(state: SongWithMatch[], action: SongsAction): SongWithMatch[] {
   switch (action.type) {
@@ -83,6 +84,21 @@ export function songsReducer(state: SongWithMatch[], action: SongsAction): SongW
               ...item,
               isMatched: false,
               dbSong: { ...item.dbSong, spotify_id: null },
+            }
+          : item
+      )
+
+    case 'UPDATE_SONG_METADATA':
+      return state.map((item) =>
+        item.dbSong.id === action.payload.songId
+          ? {
+              ...item,
+              dbSong: {
+                ...item.dbSong,
+                artist: action.payload.artist,
+                title: action.payload.title,
+                album: action.payload.album,
+              },
             }
           : item
       )
