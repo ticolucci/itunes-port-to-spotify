@@ -84,6 +84,7 @@ describe('SongsPage', () => {
       expect(screen.getByRole('columnheader', { name: /^artist$/i })).toBeInTheDocument()
       expect(screen.getByRole('columnheader', { name: /^album$/i })).toBeInTheDocument()
       expect(screen.getByRole('columnheader', { name: /album artist/i })).toBeInTheDocument()
+      expect(screen.getByRole('columnheader', { name: /spotify/i })).toBeInTheDocument()
       expect(screen.getByRole('columnheader', { name: /actions/i })).toBeInTheDocument()
     })
   })
@@ -151,7 +152,7 @@ describe('SongsPage', () => {
 
       await waitFor(() => {
         expect(mockFetchSongs).toHaveBeenCalledTimes(2)
-        expect(mockFetchSongs).toHaveBeenLastCalledWith({ limit: 50, offset: 50 })
+        expect(mockFetchSongs).toHaveBeenLastCalledWith({ limit: 50, offset: 50, filters: {} })
       })
     })
 
@@ -193,7 +194,7 @@ describe('SongsPage', () => {
       await user.click(screen.getByRole('button', { name: /previous/i }))
 
       await waitFor(() => {
-        expect(mockFetchSongs).toHaveBeenCalledWith({ limit: 50, offset: 0 })
+        expect(mockFetchSongs).toHaveBeenCalledWith({ limit: 50, offset: 0, filters: {} })
       })
     })
   })

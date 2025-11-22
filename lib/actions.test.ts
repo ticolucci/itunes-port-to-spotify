@@ -205,4 +205,192 @@ describe('fetchSongs Server Action', () => {
       expect(expectedPages).toBe(2)
     })
   })
+
+  describe('filtering', () => {
+    beforeEach(() => {
+      // Insert test data with varied metadata for filtering tests
+      const insert = testDb.prepare(`
+        INSERT INTO songs (title, artist, album, album_artist, filename, spotify_id)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `)
+
+      // Songs with Spotify matches
+      insert.run('Bohemian Rhapsody', 'Queen', 'A Night at the Opera', 'Queen', 'file1.mp3', 'spotify:track:123')
+      insert.run('Killer Queen', 'Queen', 'Sheer Heart Attack', 'Queen', 'file2.mp3', 'spotify:track:456')
+      insert.run('Another One Bites the Dust', 'Queen', 'The Game', 'Queen', 'file3.mp3', null)
+
+      // Songs without Spotify matches
+      insert.run('Yesterday', 'The Beatles', 'Help!', 'The Beatles', 'file4.mp3', null)
+      insert.run('Let It Be', 'The Beatles', 'Let It Be', 'The Beatles', 'file5.mp3', null)
+      insert.run('Hey Jude', 'The Beatles', 'Hey Jude', 'The Beatles', 'file6.mp3', 'spotify:track:789')
+
+      // More varied data
+      insert.run('Thriller', 'Michael Jackson', 'Thriller', 'Michael Jackson', 'file7.mp3', 'spotify:track:abc')
+      insert.run('Beat It', 'Michael Jackson', 'Thriller', 'Michael Jackson', 'file8.mp3', null)
+    })
+
+    describe('title filter (starts with)', () => {
+      it('filters songs by title prefix', async () => {
+        const result = await fetchSongs({ filters: { title: 'Bo' } })
+
+        expect(result.success).toBe(true)
+        if (result.success) {
+          expect(result.songs).toHaveLength(1)
+          expect(result.songs[0].title).toBe('Bohemian Rhapsody')
+        }
+      })
+
+      it('is case-insensitive', async () => {
+        const result = await fetchSongs({ filters: { title: 'killer' } })
+
+        expect(result.success).toBe(true)
+        if (result.success) {
+          expect(result.songs).toHaveLength(1)
+          expect(result.songs[0].title).toBe('Killer Queen')
+        }
+      })
+
+      it('returns multiple matches', async () => {
+        const result = await fetchSongs({ filters: { title: 'B' } })
+
+        expect(result.success).toBe(true)
+        if (result.success) {
+          expect(result.songs).toHaveLength(2) // Bohemian Rhapsody, Beat It
+          expect(result.songs.every(s => s.title?.toLowerCase().startsWith('b'))).toBe(true)
+        }
+      })
+    })
+
+    describe('artist filter (starts with)', () => {
+      it('filters songs by artist prefix', async () => {
+        const result = await fetchSongs({ filters: { artist: 'Queen' } })
+
+        expect(result.success).toBe(true)
+        if (result.success) {
+          expect(result.songs).toHaveLength(3)
+          expect(result.songs.every(s => s.artist === 'Queen')).toBe(true)
+        }
+      })
+
+      it('is case-insensitive', async () => {
+        const result = await fetchSongs({ filters: { artist: 'the b' } })
+
+        expect(result.success).toBe(true)
+        if (result.success) {
+          expect(result.songs).toHaveLength(3) // All Beatles songs
+          expect(result.songs.every(s => s.artist === 'The Beatles')).toBe(true)
+        }
+      })
+    })
+
+    describe('album filter (starts with)', () => {
+      it('filters songs by album prefix', async () => {
+        const result = await fetchSongs({ filters: { album: 'Thrill' } })
+
+        expect(result.success).toBe(true)
+        if (result.success) {
+          expect(result.songs).toHaveLength(2) // Thriller album has 2 songs
+          expect(result.songs.every(s => s.album === 'Thriller')).toBe(true)
+        }
+      })
+
+      it('handles special characters in filter', async () => {
+        const result = await fetchSongs({ filters: { album: 'Help' } })
+
+        expect(result.success).toBe(true)
+        if (result.success) {
+          expect(result.songs).toHaveLength(1)
+          expect(result.songs[0].album).toBe('Help!')
+        }
+      })
+    })
+
+    describe('hasSpotifyMatch filter', () => {
+      it('filters songs with Spotify matches when true', async () => {
+        const result = await fetchSongs({ filters: { hasSpotifyMatch: true } })
+
+        expect(result.success).toBe(true)
+        if (result.success) {
+          expect(result.songs).toHaveLength(4) // 4 songs have spotify_id
+          expect(result.songs.every(s => s.spotify_id !== null)).toBe(true)
+        }
+      })
+
+      it('filters songs without Spotify matches when false', async () => {
+        const result = await fetchSongs({ filters: { hasSpotifyMatch: false } })
+
+        expect(result.success).toBe(true)
+        if (result.success) {
+          expect(result.songs).toHaveLength(4) // 4 songs without spotify_id
+          expect(result.songs.every(s => s.spotify_id === null)).toBe(true)
+        }
+      })
+    })
+
+    describe('combined filters', () => {
+      it('applies multiple filters together', async () => {
+        const result = await fetchSongs({
+          filters: {
+            artist: 'Queen',
+            hasSpotifyMatch: true,
+          },
+        })
+
+        expect(result.success).toBe(true)
+        if (result.success) {
+          expect(result.songs).toHaveLength(2) // Queen songs with Spotify match
+          expect(result.songs.every(s => s.artist === 'Queen' && s.spotify_id !== null)).toBe(true)
+        }
+      })
+
+      it('works with pagination', async () => {
+        const result = await fetchSongs({
+          filters: { hasSpotifyMatch: false },
+          limit: 2,
+          offset: 0,
+        })
+
+        expect(result.success).toBe(true)
+        if (result.success) {
+          expect(result.songs).toHaveLength(2)
+          expect(result.total).toBe(4) // Total unmatched songs
+          expect(result.count).toBe(2) // Page size
+        }
+      })
+
+      it('returns correct total when filtering with pagination', async () => {
+        const result = await fetchSongs({
+          filters: { artist: 'The Beatles' },
+          limit: 1,
+          offset: 0,
+        })
+
+        expect(result.success).toBe(true)
+        if (result.success) {
+          expect(result.songs).toHaveLength(1)
+          expect(result.total).toBe(3) // Total Beatles songs
+        }
+      })
+    })
+
+    describe('empty filter values', () => {
+      it('ignores empty string filters', async () => {
+        const result = await fetchSongs({ filters: { title: '' } })
+
+        expect(result.success).toBe(true)
+        if (result.success) {
+          expect(result.songs).toHaveLength(8) // All songs
+        }
+      })
+
+      it('ignores undefined hasSpotifyMatch', async () => {
+        const result = await fetchSongs({ filters: { hasSpotifyMatch: undefined } })
+
+        expect(result.success).toBe(true)
+        if (result.success) {
+          expect(result.songs).toHaveLength(8) // All songs
+        }
+      })
+    })
+  })
 })
