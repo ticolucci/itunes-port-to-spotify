@@ -10,6 +10,7 @@ import {
   hasMoreToReview,
   createInitialSongs,
   getEligibleAutoMatchSongs,
+  findNextReviewableIndex,
   type SongWithMatch,
 } from './song-matcher-utils'
 import {
@@ -275,5 +276,145 @@ describe('getEligibleAutoMatchSongs', () => {
 
     const result = getEligibleAutoMatchSongs([song], matchingIds, processedMatches)
     expect(result).toHaveLength(0)
+  })
+})
+
+describe('findNextReviewableIndex', () => {
+  it('returns startIndex when song at startIndex is reviewable', () => {
+    const songs: SongWithMatch[] = [
+      createMockSongWithMatch({
+        dbSong: createMockSong({ id: 1 }),
+        spotifyMatch: createMockSpotifyTrack(),
+        isMatched: false,
+      }),
+    ]
+    expect(findNextReviewableIndex(songs, 0)).toBe(0)
+  })
+
+  it('skips songs that are already matched', () => {
+    const songs: SongWithMatch[] = [
+      createMockSongWithMatch({
+        dbSong: createMockSong({ id: 1 }),
+        spotifyMatch: createMockSpotifyTrack(),
+        isMatched: true, // already matched
+      }),
+      createMockSongWithMatch({
+        dbSong: createMockSong({ id: 2 }),
+        spotifyMatch: createMockSpotifyTrack(),
+        isMatched: false, // reviewable
+      }),
+    ]
+    expect(findNextReviewableIndex(songs, 0)).toBe(1)
+  })
+
+  it('skips songs with no spotifyMatch (failed search)', () => {
+    const songs: SongWithMatch[] = [
+      createMockSongWithMatch({
+        dbSong: createMockSong({ id: 1 }),
+        spotifyMatch: null, // failed search
+        isMatched: false,
+      }),
+      createMockSongWithMatch({
+        dbSong: createMockSong({ id: 2 }),
+        spotifyMatch: createMockSpotifyTrack(),
+        isMatched: false, // reviewable
+      }),
+    ]
+    expect(findNextReviewableIndex(songs, 0)).toBe(1)
+  })
+
+  it('skips songs that are still searching', () => {
+    const songs: SongWithMatch[] = [
+      createMockSongWithMatch({
+        dbSong: createMockSong({ id: 1 }),
+        spotifyMatch: null,
+        searching: true, // still searching
+        isMatched: false,
+      }),
+      createMockSongWithMatch({
+        dbSong: createMockSong({ id: 2 }),
+        spotifyMatch: createMockSpotifyTrack(),
+        isMatched: false, // reviewable
+      }),
+    ]
+    expect(findNextReviewableIndex(songs, 0)).toBe(1)
+  })
+
+  it('returns -1 when no reviewable songs exist', () => {
+    const songs: SongWithMatch[] = [
+      createMockSongWithMatch({
+        dbSong: createMockSong({ id: 1 }),
+        spotifyMatch: null, // failed search
+        isMatched: false,
+      }),
+      createMockSongWithMatch({
+        dbSong: createMockSong({ id: 2 }),
+        spotifyMatch: createMockSpotifyTrack(),
+        isMatched: true, // already matched
+      }),
+    ]
+    expect(findNextReviewableIndex(songs, 0)).toBe(-1)
+  })
+
+  it('returns -1 when startIndex is beyond array length', () => {
+    const songs: SongWithMatch[] = [
+      createMockSongWithMatch({
+        dbSong: createMockSong({ id: 1 }),
+        spotifyMatch: createMockSpotifyTrack(),
+        isMatched: false,
+      }),
+    ]
+    expect(findNextReviewableIndex(songs, 5)).toBe(-1)
+  })
+
+  it('finds reviewable song after multiple non-reviewable songs', () => {
+    const songs: SongWithMatch[] = [
+      createMockSongWithMatch({
+        dbSong: createMockSong({ id: 1 }),
+        spotifyMatch: createMockSpotifyTrack(),
+        isMatched: true, // already matched
+      }),
+      createMockSongWithMatch({
+        dbSong: createMockSong({ id: 2 }),
+        spotifyMatch: null, // failed search
+        isMatched: false,
+      }),
+      createMockSongWithMatch({
+        dbSong: createMockSong({ id: 3 }),
+        spotifyMatch: createMockSpotifyTrack(),
+        isMatched: true, // already matched
+      }),
+      createMockSongWithMatch({
+        dbSong: createMockSong({ id: 4 }),
+        spotifyMatch: createMockSpotifyTrack(),
+        isMatched: false, // reviewable!
+      }),
+    ]
+    expect(findNextReviewableIndex(songs, 0)).toBe(3)
+  })
+
+  it('respects startIndex and skips earlier songs', () => {
+    const songs: SongWithMatch[] = [
+      createMockSongWithMatch({
+        dbSong: createMockSong({ id: 1 }),
+        spotifyMatch: createMockSpotifyTrack(),
+        isMatched: false, // reviewable but before startIndex
+      }),
+      createMockSongWithMatch({
+        dbSong: createMockSong({ id: 2 }),
+        spotifyMatch: null, // failed search
+        isMatched: false,
+      }),
+      createMockSongWithMatch({
+        dbSong: createMockSong({ id: 3 }),
+        spotifyMatch: createMockSpotifyTrack(),
+        isMatched: false, // reviewable, after startIndex
+      }),
+    ]
+    expect(findNextReviewableIndex(songs, 1)).toBe(2)
+  })
+
+  it('returns -1 for empty array', () => {
+    expect(findNextReviewableIndex([], 0)).toBe(-1)
   })
 })

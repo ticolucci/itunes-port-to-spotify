@@ -19,6 +19,7 @@ import {
   shouldSkipSong,
   createInitialSongs,
   getEligibleAutoMatchSongs,
+  findNextReviewableIndex,
 } from '@/lib/song-matcher-utils'
 import { songsReducer } from './state/songsReducer'
 
@@ -399,8 +400,11 @@ export default function SpotifyMatcherPage() {
 
   const matchedCount = songsWithMatches.filter((s) => s.isMatched).length
   const totalCount = songsWithMatches.length
-  const currentReview = songsWithMatches[currentReviewIndex]
-  const hasMoreToReview = currentReviewIndex < songsWithMatches.length
+
+  // Find the next reviewable song starting from the current index
+  const reviewableIndex = findNextReviewableIndex(songsWithMatches, currentReviewIndex)
+  const currentReview = reviewableIndex >= 0 ? songsWithMatches[reviewableIndex] : null
+  const hasMoreToReview = reviewableIndex >= 0
 
   return (
     <div className="container mx-auto py-8">
@@ -457,7 +461,7 @@ export default function SpotifyMatcherPage() {
       {hasMoreToReview && currentReview && (
         <ReviewCard
           currentReview={currentReview}
-          currentIndex={currentReviewIndex}
+          currentIndex={reviewableIndex}
           totalCount={songsWithMatches.length}
           isMatching={matchingIds.has(currentReview.dbSong.id)}
           onMatch={handleReviewMatch}
