@@ -85,6 +85,7 @@ yarn-error.log*
 *.pem
 
 # SQLite
+database.db
 *.db-shm
 *.db-wal
 
