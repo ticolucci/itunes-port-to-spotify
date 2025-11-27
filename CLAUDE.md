@@ -246,6 +246,157 @@ npm run dev
 - [ ] Affected features work correctly in browser
 - [ ] PR preview deployment works with branch database
 
+### Advanced Refactoring with LSMCP
+
+This project uses **LSMCP** (Language Server Model Context Protocol) to provide advanced TypeScript refactoring capabilities through LSP integration.
+
+#### Prerequisites
+
+**Node.js Version:**
+- LSMCP requires **Node.js >= 22.0.0** (uses built-in `node:sqlite` module)
+- Project has `.nvmrc` file set to Node 22
+- If using nvm, it will auto-switch when entering the project directory
+
+**Installed Packages:**
+- `@mizchi/lsmcp` - LSP bridge MCP server
+- `@typescript/native-preview` - Fast TypeScript runtime (tsgo preset)
+
+#### Configuration
+
+LSMCP is configured in `.mcp.json` (project scope):
+```json
+{
+  "mcpServers": {
+    "lsmcp": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@mizchi/lsmcp", "-p", "tsgo"]
+    }
+  }
+}
+```
+
+Configuration files:
+- `.lsmcp/config.json` - LSMCP settings (preset: tsgo)
+- `.lsmcp/cache/` - Symbol index cache (gitignored)
+
+#### Available Refactoring Operations
+
+LSMCP provides access to TypeScript language server refactorings via the `lsp_get_code_actions` tool:
+
+**Extraction Refactorings:**
+- Extract Function/Method - Extract selected code into a new function
+- Extract Constant - Extract single expressions into constants
+- Extract Variable - Extract expressions into local variables
+- Extract Type - Extract type definitions
+
+**Inline Refactorings:**
+- Inline Variable - Replace variable with its value
+- Inline Function/Method - Replace function calls with function body
+
+**Transformation Refactorings:**
+- Convert to Arrow Function / Convert to Function Declaration
+- Convert Parameters to Destructured Object
+- Move to New File
+- Generate Get/Set Accessors
+- Infer Function Return Type
+- Add Missing Imports
+
+#### How Claude Should Use LSMCP
+
+**For advanced refactoring requests:**
+
+1. **Identify refactoring opportunity** - Analyze code to determine appropriate refactoring
+2. **Use `lsp_get_code_actions`** - Query available refactorings for the selected code range
+3. **Select appropriate action** - Choose the refactoring that matches user's request
+4. **Apply refactoring** - Execute the code action to transform the code
+5. **Verify changes** - Run tests to ensure no regression
+
+**Example workflow:**
+```
+User: "Extract this calculation into a separate function"
+
+Claude:
+1. Identifies the code range to refactor
+2. Calls: lsp_get_code_actions(file, startLine, endLine)
+3. Reviews available actions: ["Extract to function", "Extract to constant"]
+4. Selects and applies: "Extract to function"
+5. Runs: npm test
+6. Commits changes
+```
+
+#### Other LSMCP Tools Available
+
+**Code Navigation:**
+- `lsp_find_references` - Find all usages of a symbol
+- `lsp_get_definitions` - Jump to symbol definitions
+- `lsp_get_hover` - Get type information and documentation
+- `lsp_get_document_symbols` - List all symbols in a file
+- `lsp_get_workspace_symbols` - Search symbols across project
+
+**Diagnostics:**
+- `lsp_get_diagnostics` - Get errors/warnings for a file
+- `lsp_get_all_diagnostics` - Get diagnostics for entire project
+- `lsp_get_completion` - Code completion suggestions
+- `lsp_get_signature_help` - Function parameter hints
+
+**Code Editing:**
+- `lsp_rename_symbol` - Rename across entire codebase
+- `lsp_delete_symbol` - Safe symbol deletion with reference cleanup
+- `lsp_format_document` - Format code using TypeScript formatter
+- `replace_range` - Replace specific text ranges
+- `replace_regex` - Regex-based replacements
+
+**Project Analysis:**
+- `get_project_overview` - Project structure analysis
+- `search_symbols` - Fast symbol search
+- `get_symbol_details` - Comprehensive symbol information
+
+#### Symbol Index (Optional)
+
+LSMCP can build a symbol index for faster searches:
+
+```bash
+# Ensure Node 22 is active
+nvm use 22
+
+# Build index
+npx @mizchi/lsmcp index
+```
+
+**Note:** The symbol index is optional. LSMCP works without it, just without cached symbol search optimization.
+
+#### Troubleshooting
+
+**LSMCP not appearing in `/mcp`:**
+1. Verify Node version: `node --version` (should be v22.21.1+)
+2. Check `.mcp.json` exists and is valid
+3. Restart Claude Code
+
+**Node version issues:**
+- The `.nvmrc` file ensures Node 22 is used in this directory
+- Run `nvm use` to manually switch to Node 22
+
+**Performance issues:**
+- Build symbol index: `npx @mizchi/lsmcp index`
+- Check `.lsmcp/cache/` directory exists
+
+#### When to Use LSMCP vs Manual Refactoring
+
+**Use LSMCP when:**
+- Extracting methods/functions from complex code
+- Renaming symbols across many files
+- Converting function styles (arrow vs declaration)
+- Inlining variables/functions
+- Moving code to new files
+- Need type-safe, compiler-grade refactoring
+
+**Use manual refactoring when:**
+- Architectural changes (LSMCP doesn't understand business logic)
+- Cross-cutting concerns (logging, error handling)
+- Design pattern implementation
+- Custom transformations not supported by TypeScript LSP
+
 ## Architecture
 
 ### Core Components
@@ -424,8 +575,19 @@ This project is configured for deployment on Vercel. See `VERCEL_SETUP.md` for d
 2. **Create refactoring plan** - Document proposed changes
 3. **Present plan to user** - Wait for approval before proceeding
 4. **Execute incrementally** - One refactoring at a time
+   - **Use LSMCP tools** for type-safe refactorings (extract method, inline variable, rename symbols)
+   - **Use manual refactoring** for architectural changes and business logic
 5. **Test after each change** - Run `npm test` to verify no regression
 6. **Commit after each refactoring** - Keep git history clean and logical
+
+**Prefer LSMCP for:**
+- Extracting methods/functions (use `lsp_get_code_actions`)
+- Renaming symbols across files (use `lsp_rename_symbol`)
+- Inlining variables/functions (use `lsp_get_code_actions`)
+- Converting function styles (use `lsp_get_code_actions`)
+- Finding all references (use `lsp_find_references`)
+
+See "Advanced Refactoring with LSMCP" section for detailed usage instructions.
 
 **Refactoring commit format:**
 ```
