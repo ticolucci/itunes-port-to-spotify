@@ -2,6 +2,11 @@ import { afterEach, vi } from 'vitest'
 import { cleanup } from '@testing-library/react'
 import '@testing-library/jest-dom/vitest'
 
+// Register Polly.js adapters for HTTP recording/replaying
+import '@pollyjs/adapter-node-http'
+import '@pollyjs/adapter-fetch'
+import '@pollyjs/persister-fs'
+
 // Cleanup after each test
 afterEach(() => {
   cleanup()

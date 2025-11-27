@@ -92,3 +92,10 @@ database.db
 # Playwright
 playwright-report/
 test-results/
+
+# lsmcp cache
+.lsmcp/cache
+
+# Polly.js recordings
+# NOTE: Recordings should be committed to enable offline testing in CI
+# Only ignore sensitive auth tokens (which are already sanitized automatically)
