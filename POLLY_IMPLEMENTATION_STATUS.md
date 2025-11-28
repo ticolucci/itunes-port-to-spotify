@@ -1,7 +1,7 @@
 # Polly.js Implementation Status
 
 **Last Updated:** November 28, 2025
-**Status:** ✅ Complete - Unit and Integration Tests Fully Implemented (E2E Skipped)
+**Status:** ✅ Complete - Unit and Integration Tests Fully Implemented with CI/CD (E2E Skipped)
 
 ## Overview
 
@@ -200,18 +200,132 @@ npm test -- lib/spotify.test.ts
 - Tests are passing and provide adequate coverage
 - No immediate need for HTTP recording/replay in E2E context
 
-### Future Considerations (Optional)
+## ✅ CI/CD Integration
 
-1. **CI/CD Integration:**
-   - All unit and integration tests already use Polly replay mode by default
-   - CI runs tests offline using committed recordings
-   - No Spotify credentials needed in CI for unit/integration tests
-   - E2E tests in CI would need Spotify credentials (current setup)
+### Automated Testing in CI
 
-2. **Maintenance:**
-   - Refresh unit/integration recordings when Spotify API changes
-   - Recording validation in CI (could add checks for outdated recordings)
-   - Keep documentation up to date
+**How it works:**
+1. **Replay Mode by Default** - CI explicitly sets `POLLY_MODE=replay` to use committed recordings
+2. **Recording Validation** - CI checks that recordings exist before running tests
+3. **No Spotify Credentials Needed** - Unit and integration tests run offline using HAR files
+4. **Fast Test Execution** - Tests run 70x faster in replay mode vs. live API
+
+**CI Workflow** (`.github/workflows/ci-cd.yml`):
+```yaml
+- name: Validate Polly recordings exist
+  # Checks for test/recordings/unit/ and test/recordings/integration/
+  # Fails if no HAR files found
+
+- name: Run tests (using Polly replay mode)
+  env:
+    POLLY_MODE: replay  # Explicit replay mode
+  run: npm run test
+```
+
+**What gets tested in CI:**
+- ✅ Unit tests (`lib/spotify.test.ts`) - Uses recordings from `test/recordings/unit/`
+- ✅ Integration tests (`lib/spotify.integration.test.ts`) - Uses recordings from `test/recordings/integration/`
+- ⏭️ E2E tests (`e2e/smoke.spec.ts`) - Still uses real Spotify API calls
+
+### Recording Refresh Workflow
+
+**When to refresh recordings:**
+- Spotify API response format changes
+- Adding new test cases that make different API calls
+- Updating test fixtures (e.g., changing searched songs)
+- Recordings become outdated (manually check HAR files)
+
+**How to refresh recordings:**
+
+1. **Set up Spotify credentials locally** (one-time):
+   ```bash
+   # Create .env.local with your Spotify API credentials
+   SPOTIFY_CLIENT_ID="your_client_id"
+   SPOTIFY_CLIENT_SECRET="your_client_secret"
+   ```
+
+2. **Re-record unit tests:**
+   ```bash
+   # Delete old recordings
+   rm -rf test/recordings/unit/spotify-client_*
+
+   # Record new interactions
+   POLLY_MODE=record npm test -- lib/spotify.test.ts
+
+   # Verify new recordings were created
+   ls -lh test/recordings/unit/
+   ```
+
+3. **Re-record integration tests:**
+   ```bash
+   # Delete old recordings
+   rm -rf test/recordings/integration/spotify-client-integration_*
+
+   # Record new interactions
+   POLLY_MODE=record npm test -- lib/spotify.integration.test.ts
+
+   # Verify new recordings were created
+   ls -lh test/recordings/integration/
+   ```
+
+4. **Verify replay mode still works:**
+   ```bash
+   # Run tests in replay mode (default)
+   npm test -- lib/spotify.test.ts
+   npm test -- lib/spotify.integration.test.ts
+
+   # Should pass using new recordings
+   ```
+
+5. **Commit updated recordings:**
+   ```bash
+   git add test/recordings/
+   git commit -m "chore: Refresh Polly.js recordings for Spotify API tests"
+   git push
+   ```
+
+**Recording validation checklist:**
+- [ ] All tests pass in record mode with real API
+- [ ] All tests pass in replay mode with recordings
+- [ ] HAR files contain expected number of requests
+- [ ] Auth tokens are sanitized ("Bearer REDACTED")
+- [ ] Recording file sizes are reasonable (~80KB for unit, ~150KB for integration)
+- [ ] Commit both unit and integration recordings together
+
+**Troubleshooting refresh issues:**
+
+**"Tests fail in record mode":**
+- Check Spotify credentials are valid
+- Verify song fixtures exist on Spotify (e.g., "Hey Jude" by The Beatles)
+- Check internet connection
+- Review Spotify API rate limits
+
+**"Tests pass in record mode but fail in replay mode":**
+- Delete recordings and re-record (Polly may have captured partial data)
+- Check that `beforeAll`/`afterAll` are used (not `beforeEach`/`afterEach`)
+- Verify recording file isn't corrupted (should be valid JSON)
+
+**"Recording file is too large (>500KB)":**
+- Check if extra requests are being captured
+- Review test to ensure minimal API calls
+- Consider splitting into separate test files
+
+### Maintenance Best Practices
+
+1. **Regular recording updates:**
+   - Refresh recordings quarterly or when API changes
+   - Test both record and replay modes before committing
+   - Document any API behavior changes in commit messages
+
+2. **Recording validation in CI:**
+   - CI automatically validates recordings exist
+   - Fails fast if recordings are missing
+   - Prevents accidental API calls in CI environment
+
+3. **Documentation maintenance:**
+   - Update this document when changing Polly setup
+   - Keep fixture songs list current (avoid removed songs)
+   - Document known API quirks or edge cases
 
 ## 📚 References
 

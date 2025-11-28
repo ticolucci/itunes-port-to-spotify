@@ -49,10 +49,45 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Validate Polly recordings exist
+        run: |
+          echo "Checking for Polly.js HTTP recordings..."
+
+          # Check for unit test recordings
+          if [ ! -d "test/recordings/unit" ]; then
+            echo "❌ ERROR: Unit test recordings directory not found!"
+            echo "Expected: test/recordings/unit/"
+            exit 1
+          fi
+
+          # Check for integration test recordings
+          if [ ! -d "test/recordings/integration" ]; then
+            echo "❌ ERROR: Integration test recordings directory not found!"
+            echo "Expected: test/recordings/integration/"
+            exit 1
+          fi
+
+          # Count HAR files
+          UNIT_RECORDINGS=$(find test/recordings/unit -name "recording.har" | wc -l)
+          INTEGRATION_RECORDINGS=$(find test/recordings/integration -name "recording.har" | wc -l)
+
+          echo "✅ Found $UNIT_RECORDINGS unit test recording(s)"
+          echo "✅ Found $INTEGRATION_RECORDINGS integration test recording(s)"
+
+          if [ "$UNIT_RECORDINGS" -eq 0 ] && [ "$INTEGRATION_RECORDINGS" -eq 0 ]; then
+            echo "❌ ERROR: No Polly recordings found!"
+            echo "Run 'POLLY_MODE=record npm test' locally to create recordings."
+            exit 1
+          fi
+
+          echo "✅ Polly recordings validated successfully"
+
       - name: Run type checking
         run: npm run test:types
 
-      - name: Run tests
+      - name: Run tests (using Polly replay mode)
+        env:
+          POLLY_MODE: replay
         run: npm run test
 
   # Job 3: Build (runs on all branches)
