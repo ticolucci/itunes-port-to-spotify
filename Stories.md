@@ -29,12 +29,6 @@ This file collects short, actionable user stories and technical tasks for the pr
   - Cache used for repeated identical queries in a run.
   - Tests cover retry/backoff logic.
 
-## 10) History cleanup & git-crypt hygiene
-- Description: If secrets were accidentally committed, provide a documented workflow (BFG or git-filter-repo) and ensure `.secrets` is git-ignored; confirm `.gitattributes` covers sensitive files.
-- Acceptance criteria:
-  - `README_git_crypt.md` updated with recommended cleanup steps.
-  - `.gitignore` contains `.secrets` and any private-export files.
-
 ## 13) UX improvements: better search scoring and fuzzy matching
 - Description: Experiment with multiple query permutations, normalize tokens, and pick the best match using heuristics (Levenshtein, normalized artist/title match).
 - Acceptance criteria:

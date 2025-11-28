@@ -453,14 +453,12 @@ npx @mizchi/lsmcp index
 - `TURSO_AUTH_TOKEN`: Turso authentication token
 - See `.env.example` for setup instructions
 
-The local database file is encrypted with git-crypt and should not be committed unencrypted.
-
 ### Security & Secrets
 
-- **git-crypt** is used to encrypt sensitive files (`database.db`, `.env.local`, `*.key`, `*.pem`)
-- See `README_git_crypt.md` for setup instructions
 - `.env.local` contains SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET for Spotify API
-- Never commit unencrypted secrets
+- The local database file (`database.db`) is gitignored and should never be committed
+- See `.env.example` for required environment variables
+- Never commit secrets or credentials to the repository
 
 ## CI/CD Pipeline
 
