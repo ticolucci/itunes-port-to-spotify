@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, beforeAll, afterAll } from 'vitest'
 import { searchSpotifyTracks, escapeSpotifyQuery } from './spotify'
 import { setupPollyContext } from '@/test/polly/setup'
 import { POPULAR_SONGS } from '@/test/fixtures/popular-songs'
@@ -13,7 +13,8 @@ vi.mock('./spotify-cache', () => ({
 
 describe('Spotify Client', () => {
   // Setup Polly for HTTP recording/replaying
-  const pollyContext = setupPollyContext('spotify-client', beforeEach, afterEach, 'unit')
+  // Use beforeAll/afterAll to share one Polly instance across all tests
+  const pollyContext = setupPollyContext('spotify-client', beforeAll, afterAll, 'unit')
 
   beforeEach(() => {
     vi.clearAllMocks()

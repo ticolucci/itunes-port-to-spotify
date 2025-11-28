@@ -1,7 +1,7 @@
 # Polly.js Implementation Status
 
-**Last Updated:** November 27, 2025
-**Status:** Partially Implemented - Recording Works, Replay Needs Fix
+**Last Updated:** November 28, 2025
+**Status:** ✅ Fully Implemented - Recording and Replay Both Working
 
 ## Overview
 
@@ -47,75 +47,64 @@ This document tracks the implementation of Polly.js HTTP recording/replay for te
   - Tests now use real song fixtures instead of fake data
   - Tests adjusted for real API responses (e.g., "Hey Jude - Remastered 2015")
 
-### Recording Mode
+### Recording and Replay Modes
 - ✅ **Successfully records real Spotify API calls:**
   ```bash
   POLLY_MODE=record npm test -- lib/spotify.test.ts
   ```
   - Creates 80KB HAR file with real API responses
+  - Captures 6 HTTP requests (1 OAuth POST + 5 search GETs)
   - Auth tokens properly sanitized to "Bearer REDACTED"
   - Recordings saved to `test/recordings/unit/spotify-client_*/recording.har`
 
-## ⚠️ Known Issues
+- ✅ **Successfully replays recorded API calls:**
+  ```bash
+  POLLY_MODE=replay npm test -- lib/spotify.test.ts
+  ```
+  - All 19 tests pass using recorded responses
+  - No real API calls made (70x faster: 27ms vs 1892ms)
+  - Works in CI without Spotify credentials
 
-### Issue 1: Replay Mode Not Working
+## ✅ Fixed Issues
 
-**Problem:**
-Tests fail in replay mode because Polly cannot match incoming requests to recorded requests.
+### Issue 1: Replay Mode Not Working (FIXED ✅)
 
-**Error:**
-```
-[Polly] [adapter:fetch] Recording not found for fetch request
-```
+**Original Problem:**
+Tests failed in replay mode because each test created a new Polly instance, overwriting previous recordings. Only the last test's requests were saved.
 
-**Current Configuration:**
+**Root Cause:**
+The test used `beforeEach`/`afterEach` hooks to create a Polly instance for each test. All tests used the same recording name ("spotify-client"), so:
+1. Test 1 runs → Creates recording with OAuth + Search 1
+2. Test 2 runs → Overwrites recording with OAuth + Search 2
+3. Test N runs → Only final recording survives
+
+**Solution:**
+Changed from `beforeEach`/`afterEach` to `beforeAll`/`afterAll`:
+
 ```typescript
-matchRequestsBy: {
-  headers: false,  // Ignore headers (auth tokens change)
-  body: false,     // Ignore body (Spotify OAuth in body)
-  url: {
-    protocol: true,
-    hostname: true,
-    port: true,
-    pathname: true,
-    query: true,    // Match query parameters
-    hash: false,
-  },
-  order: false,    // Don't care about request order
-}
+// Before (broken):
+const pollyContext = setupPollyContext('spotify-client', beforeEach, afterEach, 'unit')
+
+// After (fixed):
+const pollyContext = setupPollyContext('spotify-client', beforeAll, afterAll, 'unit')
 ```
 
-**Likely Causes:**
-1. **Request URL mismatch** - Query parameters might be in different order
-2. **Persister file structure** - Polly creates subdirectories with timestamps
-3. **OAuth token requests** - Initial token request might not be recorded/replayed correctly
-4. **Method matching** - Need to verify HTTP methods (GET/POST) are matching
+This makes all tests share a single Polly instance that records ALL requests:
+- 1 POST to `https://accounts.spotify.com/api/token` (OAuth)
+- 5 GET requests to `https://api.spotify.com/v1/search?...` (searches)
 
-**Potential Solutions:**
-1. **Debug request matching:**
-   - Add logging to see actual vs expected request URLs
-   - Compare recorded HAR file requests to test requests
+**Verification:**
+```bash
+# Recording mode - captures all requests
+POLLY_MODE=record npm test -- lib/spotify.test.ts
+✓ 19 tests pass in 1892ms
 
-2. **Simplify URL matching:**
-   ```typescript
-   url: {
-     pathname: true,  // Only match path, ignore query params
-     query: false,
-   }
-   ```
+# Replay mode - uses recorded responses (no API calls)
+POLLY_MODE=replay npm test -- lib/spotify.test.ts
+✓ 19 tests pass in 27ms (70x faster!)
+```
 
-3. **Use passthrough for OAuth:**
-   ```typescript
-   server
-     .any('https://accounts.spotify.com/api/token')
-     .passthrough()  // Let OAuth happen normally, only record search
-   ```
-
-4. **Flatten recording structure:**
-   - Configure Polly to use flat files instead of subdirectories
-   - May need custom persister configuration
-
-### Issue 2: Recording File Organization
+### Issue 2: Recording File Organization (Accepted as Polly Default)
 
 **Problem:**
 Polly creates subdirectories with timestamps (e.g., `spotify-client_1621079015/recording.har`) instead of flat files.
@@ -147,7 +136,7 @@ test/
     └── shared/               # Shared recordings (not yet implemented)
 ```
 
-## 🔧 Usage (Current State)
+## 🔧 Usage
 
 ### Recording Tests
 ```bash
@@ -159,7 +148,7 @@ export SPOTIFY_CLIENT_SECRET="your_client_secret"
 POLLY_MODE=record npm test -- lib/spotify.test.ts
 ```
 
-**Status:** ✅ Works - Creates recordings with real API data
+**Status:** ✅ Works - Creates recordings with real API data (6 requests captured)
 
 ### Replaying Tests
 ```bash
@@ -169,25 +158,9 @@ POLLY_MODE=replay npm test -- lib/spotify.test.ts
 npm test -- lib/spotify.test.ts
 ```
 
-**Status:** ❌ Fails - Cannot match requests to recordings
+**Status:** ✅ Works - All 19 tests pass using recorded responses (70x faster than live API)
 
 ## 🎯 Next Steps
-
-### Immediate (Fix Replay)
-1. **Debug request matching:**
-   - Log actual request URLs during replay
-   - Compare to recorded requests in HAR file
-   - Identify mismatch (likely query params or OAuth)
-
-2. **Adjust matching configuration:**
-   - Try simpler URL matching
-   - Consider passthrough for OAuth endpoints
-   - Test with single request first
-
-3. **Test replay:**
-   ```bash
-   POLLY_MODE=replay npm test -- lib/spotify.test.ts
-   ```
 
 ### Short-term (Complete Unit Tests)
 1. Migrate remaining test files:
