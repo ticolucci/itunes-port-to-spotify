@@ -1,7 +1,7 @@
 # Polly.js Implementation Status
 
 **Last Updated:** November 28, 2025
-**Status:** ✅ Fully Implemented - Unit and Integration Tests Complete
+**Status:** ✅ Complete - Unit and Integration Tests Fully Implemented (E2E Skipped)
 
 ## Overview
 
@@ -132,8 +132,9 @@ test/
     ├── unit/                 # Unit test recordings
     │   └── spotify-client_*/
     │       └── recording.har # 80KB HAR file
-    ├── e2e/                  # E2E recordings (not yet implemented)
-    └── shared/               # Shared recordings (not yet implemented)
+    └── integration/          # Integration test recordings
+        └── spotify-client-integration_*/
+            └── recording.har
 ```
 
 ## 🔧 Usage
@@ -183,26 +184,34 @@ npm test -- lib/spotify.test.ts
    - All requests captured in single HAR file per test suite
    - Auth tokens automatically sanitized to "Bearer REDACTED"
 
-### Long-term (E2E & CI/CD)
-1. **E2E Implementation:**
-   - Create `app/api/polly/middleware.ts` for server-side recording
-   - Update `e2e/smoke.spec.ts` to use popular song fixtures
-   - Record E2E Spotify API calls
+### ⏭️ E2E Implementation (Skipped)
 
-2. **CI/CD Integration:**
-   - Update `.github/workflows/ci-cd.yml`:
-     ```yaml
-     env:
-       POLLY_MODE: replay
-       # No Spotify credentials needed!
-     ```
-   - Commit recordings to repository
-   - Tests run offline in CI using recordings
+**Decision:** E2E Polly integration has been deferred indefinitely.
 
-3. **Maintenance:**
-   - Monthly recording refresh script
-   - Recording validation in CI
-   - Documentation updates
+**Rationale:**
+- E2E tests currently use real Spotify API calls (acceptable for now)
+- E2E test coverage is minimal (2 smoke tests)
+- Unit and integration tests provide sufficient Polly coverage
+- E2E Polly setup would require Next.js instrumentation hooks and additional complexity
+- Focus efforts on other priorities
+
+**Current E2E State:**
+- `e2e/smoke.spec.ts` - Uses real Spotify API calls
+- Tests are passing and provide adequate coverage
+- No immediate need for HTTP recording/replay in E2E context
+
+### Future Considerations (Optional)
+
+1. **CI/CD Integration:**
+   - All unit and integration tests already use Polly replay mode by default
+   - CI runs tests offline using committed recordings
+   - No Spotify credentials needed in CI for unit/integration tests
+   - E2E tests in CI would need Spotify credentials (current setup)
+
+2. **Maintenance:**
+   - Refresh unit/integration recordings when Spotify API changes
+   - Recording validation in CI (could add checks for outdated recordings)
+   - Keep documentation up to date
 
 ## 📚 References
 
