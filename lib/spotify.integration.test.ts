@@ -4,48 +4,21 @@
  * These tests use real API responses (recorded) instead of mocks, providing
  * more realistic test coverage while remaining fast and deterministic.
  *
- * To update recordings:
- * 1. Ensure SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET are set in .env.local
- * 2. Delete the corresponding recording in __recordings__/
- * 3. Run the tests - Polly will record new responses
+ * Run modes:
+ * - POLLY_MODE=record npm test -- lib/spotify.integration.test.ts (records real API calls)
+ * - POLLY_MODE=replay npm test -- lib/spotify.integration.test.ts (uses recordings, default)
+ * - npm test -- lib/spotify.integration.test.ts (same as replay)
  */
-import { describe, it, expect, beforeEach } from 'vitest'
-import { setupPollyContext, configurePollyForSpotify, setPollyReplayMode } from './test-helpers/polly-setup'
+import { describe, it, expect, beforeAll, afterAll } from 'vitest'
+import { setupPollyContext } from '@/test/polly/setup'
 import { searchSpotifyTracks } from './spotify'
-import dotenv from 'dotenv'
-import path from 'path'
-import fs from 'fs'
 
-// Load environment variables for API credentials
-dotenv.config({ path: path.resolve(__dirname, '../.env.local') })
-
-// Check if recordings exist
-const recordingsDir = path.resolve(__dirname, '../__recordings__/spotify-api')
-const hasRecordings = fs.existsSync(recordingsDir)
-const hasRealCredentials = !!(process.env.SPOTIFY_CLIENT_ID && process.env.SPOTIFY_CLIENT_SECRET)
-
-// Skip entire test suite if no credentials AND no recordings
-const canRunTests = hasRealCredentials || hasRecordings
-
-describe.skipIf(!canRunTests)('Spotify API Integration', () => {
-  const context = setupPollyContext('spotify-api')
-
-  beforeEach(() => {
-    // If no real credentials but we have recordings, use replay mode with dummy creds
-    if (!hasRealCredentials && hasRecordings && context.polly) {
-      setPollyReplayMode(context.polly)
-      // Set dummy credentials to pass the initial validation
-      process.env.SPOTIFY_CLIENT_ID = 'polly-replay-dummy-id'
-      process.env.SPOTIFY_CLIENT_SECRET = 'polly-replay-dummy-secret'
-    }
-  })
+describe('Spotify API Integration', () => {
+  // Share single Polly instance across all tests to capture all requests
+  const pollyContext = setupPollyContext('spotify-integration', beforeAll, afterAll, 'integration')
 
   describe('searchSpotifyTracks', () => {
     it('searches for a well-known artist and album', async () => {
-      if (context.polly) {
-        configurePollyForSpotify(context.polly)
-      }
-
       const results = await searchSpotifyTracks({
         artist: 'The Beatles',
         album: 'Abbey Road',
@@ -65,10 +38,6 @@ describe.skipIf(!canRunTests)('Spotify API Integration', () => {
     })
 
     it('searches by artist only', async () => {
-      if (context.polly) {
-        configurePollyForSpotify(context.polly)
-      }
-
       const results = await searchSpotifyTracks({
         artist: 'Radiohead',
       })
@@ -84,10 +53,6 @@ describe.skipIf(!canRunTests)('Spotify API Integration', () => {
     })
 
     it('searches by track name', async () => {
-      if (context.polly) {
-        configurePollyForSpotify(context.polly)
-      }
-
       const results = await searchSpotifyTracks({
         track: 'Bohemian Rhapsody',
         artist: 'Queen',
@@ -104,10 +69,6 @@ describe.skipIf(!canRunTests)('Spotify API Integration', () => {
     })
 
     it('returns empty array for non-existent content', async () => {
-      if (context.polly) {
-        configurePollyForSpotify(context.polly)
-      }
-
       const results = await searchSpotifyTracks({
         artist: 'xyznonexistentartist12345',
         album: 'xyznonexistentalbum12345',
@@ -119,10 +80,6 @@ describe.skipIf(!canRunTests)('Spotify API Integration', () => {
     })
 
     it('handles special characters in search queries', async () => {
-      if (context.polly) {
-        configurePollyForSpotify(context.polly)
-      }
-
       const results = await searchSpotifyTracks({
         artist: "Guns N' Roses",
         album: 'Appetite for Destruction',

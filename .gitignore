@@ -97,5 +97,7 @@ test-results/
 .lsmcp/cache
 
 # Polly.js recordings
-# NOTE: Recordings should be committed to enable offline testing in CI
-# Only ignore sensitive auth tokens (which are already sanitized automatically)
+# Recordings ARE committed to enable offline testing in CI without API credentials.
+# Auth tokens are automatically sanitized to "Bearer REDACTED" before saving.
+# Recordings are stored in test/recordings/{unit,integration,e2e,shared}/
+# To update recordings: POLLY_MODE=record npm test -- <test-file>

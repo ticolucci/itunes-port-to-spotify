@@ -1,7 +1,7 @@
 # Polly.js Implementation Status
 
 **Last Updated:** November 28, 2025
-**Status:** ✅ Fully Implemented - Recording and Replay Both Working
+**Status:** ✅ Fully Implemented - Unit and Integration Tests Complete
 
 ## Overview
 
@@ -162,19 +162,26 @@ npm test -- lib/spotify.test.ts
 
 ## 🎯 Next Steps
 
-### Short-term (Complete Unit Tests)
-1. Migrate remaining test files:
-   - `lib/track-similarity.test.ts`
-   - `app/spotify-matcher/` tests (if needed)
+### ✅ Short-term (Complete Unit Tests) - COMPLETED
 
-2. Update `.gitignore`:
-   ```gitignore
-   # Keep recordings but ignore sensitive data
-   test/recordings/**/*.har
-   !test/recordings/README.md
-   ```
+1. ✅ **Migrated integration tests**:
+   - `lib/spotify.integration.test.ts` - migrated to use new Polly setup from `test/polly/setup.ts`
+   - Uses `beforeAll`/`afterAll` to share single Polly instance across all tests
+   - Recordings stored in `test/recordings/integration/`
+   - Tests run 78x faster in replay mode (2664ms → 34ms)
 
-3. Document replay solution in this file
+   **Note**: Other test files (`lib/track-similarity.test.ts`, `app/spotify-matcher/*.test.tsx`) use pure functions or mocked APIs and don't need Polly integration.
+
+2. ✅ **Updated `.gitignore`**:
+   - Added clear documentation about Polly recording strategy
+   - Recordings ARE committed to repository (not ignored)
+   - Enables offline testing in CI without Spotify credentials
+
+3. ✅ **Documented replay solution**:
+   - Recording mode: `POLLY_MODE=record npm test -- <test-file>` (requires Spotify credentials)
+   - Replay mode: `POLLY_MODE=replay npm test -- <test-file>` (default, uses recordings)
+   - All requests captured in single HAR file per test suite
+   - Auth tokens automatically sanitized to "Bearer REDACTED"
 
 ### Long-term (E2E & CI/CD)
 1. **E2E Implementation:**
