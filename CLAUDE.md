@@ -2,9 +2,15 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Project Overview
+## Quick Links to Documentation
 
-This is a TypeScript/Next.js project that ports an iTunes music library to Spotify. It parses iTunes library metadata into a SQLite database and uses the Spotify API to search for matching tracks.
+- **[README.md](README.md)** - Project overview, quick start, key concepts
+- **[docs/architecture.md](docs/architecture.md)** - Core components, database schema, design patterns
+- **[docs/deployment.md](docs/deployment.md)** - Vercel deployment, CI/CD pipeline
+- **[docs/testing.md](docs/testing.md)** - Testing strategy, Polly.js setup
+- **[docs/oauth.md](docs/oauth.md)** - Google OAuth configuration
+- **[docs/ai-features.md](docs/ai-features.md)** - AI metadata fixer
+- **[STORIES.md](STORIES.md)** - Feature stories, tech debt, refactoring opportunities
 
 ## Development Commands
 
@@ -397,148 +403,6 @@ npx @mizchi/lsmcp index
 - Design pattern implementation
 - Custom transformations not supported by TypeScript LSP
 
-## Architecture
-
-### Core Components
-
-**Database Schema** (`lib/schema.ts`)
-- Drizzle ORM schema definition for the songs table
-- Auto-generates TypeScript types (`Song`, `NewSong`) for type-safe queries
-- Fields: id, title, artist, album, album_artist, filename, spotify_id
-- Database connection managed by `lib/db.ts` singleton using libsql client
-
-**Spotify Integration** (`lib/spotify.ts`)
-- Modern Spotify API client using official `@spotify/web-api-ts-sdk`
-- `searchSpotifyTracks()` - Searches Spotify tracks by artist, album, and/or track name
-- Uses client credentials flow with credentials from `.env.local`
-- Server Actions in `lib/spotify-actions.ts`:
-  - `getNextUnmatchedSong()` - Fetches first song without spotify_id
-  - `getSongsByArtist()` - Gets all songs by artist, sorted by album
-  - `searchSpotifyByArtistAlbum()` - Searches Spotify for tracks
-  - `saveSongMatch()` - Saves spotify_id for matched song
-
-**SpotifyMatcher Page** (`app/spotify-matcher/page.tsx`)
-- Interactive UI for matching iTunes songs with Spotify tracks
-- Shows current unmatched song with artist's album tracks
-- Displays Spotify search results with similarity scoring
-- One-click matching to save spotify_id to database
-
-**Bootstrap Script** (`scripts/bootstrap_songs_table_from_itunes_lib.rb`)
-- One-time import script that parses iTunes library JSON export (`ipod_library_with_files.txt`)
-- Creates/drops songs table and populates it with metadata
-- Expects newline-delimited JSON format where each song object is on separate lines
-
-### Database Schema
-
-**Unified Database Client:**
-- Uses `@libsql/client` for all environments (local development, production, CI)
-- **Local Development**: Connects to local SQLite file via `file:./database.db` URL
-- **Production/CI**: Connects to Turso (cloud SQLite) via HTTPS URL
-- Database selection is automatic based on environment variables
-
-**Connection Logic** (`lib/db.ts`):
-- If `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` are set, connects to Turso
-- Otherwise, uses local SQLite file via libsql's `file:` protocol
-- Singleton pattern ensures one connection per process
-- Returns Drizzle ORM instance for type-safe queries
-
-**Schema:**
-- Schema defined in `lib/schema.ts`
-- Fields: id (primary key), title, album, artist, album_artist, filename, spotify_id
-- Index on (artist, album, album_artist)
-- Migrations stored in `drizzle/migrations/`
-
-**Environment Variables:**
-- `TURSO_DATABASE_URL`: Turso database URL (e.g., `libsql://db-name.turso.io`)
-- `TURSO_AUTH_TOKEN`: Turso authentication token
-- See `.env.example` for setup instructions
-
-### Security & Secrets
-
-- `.env.local` contains SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET for Spotify API
-- The local database file (`database.db`) is gitignored and should never be committed
-- See `.env.example` for required environment variables
-- Never commit secrets or credentials to the repository
-
-## CI/CD Pipeline
-
-**GitHub Actions Workflow** (`.github/workflows/ci-cd.yml`):
-
-**On every push/PR:**
-1. Install dependencies (`npm ci`)
-2. Run linter (`npm run lint`) - must pass with 0 errors
-3. Run tests (`npm test`) - currently continue-on-error while updating test mocks
-4. Build application (`npm run build`) - must succeed
-
-**On push to main branch only:**
-5. Run production database migrations on Turso
-   - Uses `TURSO_DATABASE_URL` and `TURSO_AUTH_TOKEN` from GitHub secrets
-   - Automatically applies pending migrations to production database
-6. Deploy to Vercel (only if migrations succeed)
-   - Uses Vercel CLI to deploy to production
-   - Ensures database is migrated before new code goes live
-
-**On pull requests:**
-7. Create or update Turso branch database for the PR via Platform API
-   - Branch database named `itunes-spotify-pr-<number>`
-   - Seeded from production database (schema + data copy)
-   - Provides isolated database for preview testing
-8. Run migrations on branch database
-9. Deploy preview to Vercel with branch database credentials (7-day tokens)
-10. Comment on PR with preview URL and database info
-11. Auto-cleanup branch database when PR closes (via API)
-
-**GitHub Secrets Required:**
-- `TURSO_DATABASE_URL`: Production database URL
-- `TURSO_AUTH_TOKEN`: Production database auth token
-- `TURSO_API_TOKEN`: Turso Platform API token for managing branch databases
-- `TURSO_ORG_NAME`: Turso organization name
-- `TURSO_PRIMARY_DB_NAME`: Name of primary database to branch from
-- `VERCEL_TOKEN`: Vercel API token for deployments
-- `VERCEL_ORG_ID`: Vercel organization/team ID
-- `VERCEL_PROJECT_ID`: Vercel project ID
-
-**Migration Strategy:**
-- Local development: Migrations run against local `database.db`
-- Production: Migrations auto-run via GitHub Actions on main branch merges
-- Migration script (`lib/migrate.ts`) automatically detects environment
-
-## Deployment
-
-**Vercel Deployment:**
-
-This project is configured for deployment on Vercel. See `VERCEL_SETUP.md` for detailed setup instructions.
-
-**Quick Start:**
-1. Connect your GitHub repository to Vercel
-2. Configure environment variables (SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET, TURSO_DATABASE_URL, TURSO_AUTH_TOKEN)
-3. Deploy
-
-**Deployment Strategy:**
-- **Production (main branch)**: Controlled by GitHub Actions
-  - Automatic Vercel deployments are disabled for production
-  - GitHub Actions runs migrations first, then deploys to Vercel
-  - Ensures database schema is updated before new code goes live
-- **Preview (pull requests)**: Controlled by GitHub Actions with Turso database branching
-  - Each PR gets an isolated Turso database branch via Platform API
-  - Branch database is seeded from production (schema + data copy)
-  - Migrations run on branch database before preview deployment
-  - Temporary credentials (7-day expiration) generated via API
-  - Preview deployment uses branch database credentials
-  - Safe testing of schema changes and features without affecting production
-  - Branch database automatically deleted via API when PR closes
-  - No CLI installation required - all operations use Turso Platform API
-
-**Configuration Files:**
-- `vercel.json` - Build and deployment settings
-- `.vercelignore` - Excludes local database, tests, and documentation from deployment
-
-**Environment Variables Required in Vercel:**
-- `SPOTIFY_CLIENT_ID` - Spotify API credentials
-- `SPOTIFY_CLIENT_SECRET` - Spotify API credentials
-- `TURSO_DATABASE_URL` - Production database URL
-- `TURSO_AUTH_TOKEN` - Production database auth token
-
 ## Development Workflow
 
 ### Test-Driven Development (TDD) - REQUIRED
@@ -741,11 +605,13 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 - Emergency hotfixes (but add tests after)
 - Experimental/prototype code (but document as such)
 
-## Future Work
+## Related Documentation
 
-See `Stories.md` for planned features and current priorities, including:
-- Spotify query escaping for special characters
-- OAuth flow for user library mutations (add matched songs to Spotify playlists)
-- Rate limiting and retry logic
-- Token expiration handling
-- Search and delete functionality in songs browser UI
+For detailed information on specific topics, see:
+
+- **[docs/architecture.md](docs/architecture.md)** - Core components, database schema, design patterns, data flow
+- **[docs/deployment.md](docs/deployment.md)** - Vercel deployment, CI/CD pipeline, GitHub Actions, environment variables
+- **[docs/testing.md](docs/testing.md)** - Testing strategy, Polly.js setup and workflow, CI integration
+- **[docs/oauth.md](docs/oauth.md)** - Google OAuth setup, NextAuth configuration
+- **[docs/ai-features.md](docs/ai-features.md)** - AI metadata fixer, Groq integration
+- **[STORIES.md](STORIES.md)** - Feature stories, tech debt, bugs, refactoring opportunities, roadmap

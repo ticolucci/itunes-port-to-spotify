@@ -40,11 +40,22 @@ openssl rand -base64 32
 
 ## How It Works
 
-- All routes are protected by middleware
+- All routes are protected by middleware (`middleware.ts`)
 - Unauthenticated users are redirected to `/auth/signin`
 - Only the email matching `ALLOWED_EMAIL` can sign in
 - Sessions are stored in JWT cookies (no database required)
 - Unauthorized emails see an "Access Denied" page
+
+## NextAuth Configuration
+
+The authentication is implemented using NextAuth.js v5 with:
+
+- **Provider**: Google OAuth
+- **Session Strategy**: JWT (no database needed)
+- **Authorization Callback**: Email whitelist check
+- **Middleware**: Route protection for all pages
+
+See `auth.ts` for the complete configuration.
 
 ## Production Deployment
 
@@ -56,3 +67,30 @@ For Vercel deployment, add these environment variables in the Vercel dashboard:
 - `ALLOWED_EMAIL`
 
 Make sure to update the Google OAuth redirect URI to match your production domain.
+
+## Multiple Users (Future Enhancement)
+
+Currently, only one email is supported. To support multiple users:
+
+- Use comma-separated list: `ALLOWED_EMAIL=user1@example.com,user2@example.com`
+- Use domain wildcards: `ALLOWED_EMAIL=*@company.com`
+- Implement role-based access control
+
+This would require modifying the authorization callback in `auth.ts`.
+
+## Troubleshooting
+
+**"Access Denied" page:**
+- Verify `ALLOWED_EMAIL` matches your Google account email exactly
+- Check that OAuth credentials are correct
+- Ensure redirect URI in Google Console matches your app URL
+
+**Session expires quickly:**
+- Check `AUTH_SECRET` is set correctly
+- Verify browser allows cookies
+- Check for clock skew between server and client
+
+**OAuth error on callback:**
+- Verify redirect URI is added to Google Console
+- Check `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are correct
+- Ensure `AUTH_SECRET` is generated and set
