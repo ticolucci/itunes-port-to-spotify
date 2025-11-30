@@ -214,20 +214,6 @@ export default function SpotifyMatcherPage() {
           })
         )
 
-        // DEBUG: Log search results with similarity scores
-        console.log(
-          '[SPOTIFY RESULTS]',
-          JSON.stringify({
-            totalTracks: tracksWithSimilarity.length,
-            top5: tracksWithSimilarity.slice(0, 5).map((t) => ({
-              name: t.track.name,
-              artist: t.track.artists[0]?.name,
-              album: t.track.album.name,
-              similarity: t.similarity,
-            })),
-          })
-        )
-
         // Update debug UI
         dispatch({
           type: 'SET_DEBUG_INFO',
@@ -251,20 +237,6 @@ export default function SpotifyMatcherPage() {
           track: t.track,
           similarity: t.similarity,
         }))
-
-        // DEBUG: Log best match
-        console.log(
-          '[BEST MATCH]',
-          JSON.stringify({
-            local: { artist: song.artist, title: song.title, album: song.album },
-            spotify: {
-              artist: bestMatch.artists[0]?.name,
-              title: bestMatch.name,
-              album: bestMatch.album.name,
-            },
-            similarity,
-          })
-        )
 
         // Try auto-match (will only succeed if enabled and similarity >= 80%)
         const wasAutoMatched = await attemptAutoMatchAndUpdateState(

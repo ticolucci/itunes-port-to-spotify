@@ -90,11 +90,6 @@ export async function searchSpotifyTracks(
   try {
     const cachedResults = await getCachedSearch(params)
     if (cachedResults !== null) {
-      console.log('[SPOTIFY_CACHE_HIT]', JSON.stringify({
-        params,
-        resultCount: cachedResults.length,
-        timestamp: new Date().toISOString(),
-      }))
       return cachedResults
     }
   } catch (cacheError) {
@@ -115,11 +110,6 @@ export async function searchSpotifyTracks(
   // Store in cache (fire and forget - don't block on cache writes)
   try {
     await setCachedSearch(params, tracks)
-    console.log('[SPOTIFY_CACHE_SET]', JSON.stringify({
-      params,
-      resultCount: tracks.length,
-      timestamp: new Date().toISOString(),
-    }))
   } catch (cacheError) {
     // Cache errors should not affect the response
     console.warn('[SPOTIFY_CACHE_WRITE_ERROR]', cacheError)

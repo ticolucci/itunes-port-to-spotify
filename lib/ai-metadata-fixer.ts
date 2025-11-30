@@ -112,7 +112,6 @@ export async function fixMetadataWithAI(
 
     // Check cache first
     if (metadataCache.has(cacheKey)) {
-      console.log(`[AI Cache Hit] ${cacheKey}`);
       return metadataCache.get(cacheKey)!;
     }
 
@@ -154,10 +153,6 @@ Analyze the metadata and suggest corrections. Return JSON only, no markdown.`;
     // Cache successful result
     metadataCache.set(cacheKey, validated);
 
-    console.log(
-      `[AI Success] ${song.artist} - ${song.title} (confidence: ${validated.confidence})`
-    );
-
     return validated;
   } catch (error) {
     // Comprehensive error handling
@@ -182,7 +177,6 @@ Analyze the metadata and suggest corrections. Return JSON only, no markdown.`;
  */
 export function clearMetadataCache(): void {
   metadataCache.clear();
-  console.log("[AI Cache] Cleared");
 }
 
 /**
