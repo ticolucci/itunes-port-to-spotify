@@ -13,7 +13,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+
+      <body>
+        <script src="https://open.spotify.com/embed/iframe-api/v1" async />
+        {children}
+      </body>
     </html>
   );
 }

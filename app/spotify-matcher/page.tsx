@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useCallback, useReducer } from 'react'
+import { useEffect, useCallback, useReducer, useState, useRef } from 'react'
 import { Loader2, Check } from 'lucide-react'
 import type { Song } from '@/lib/schema'
 import type { SpotifyTrack } from '@/lib/spotify'
@@ -25,8 +25,15 @@ import {
 import { matcherReducer, initialMatcherState } from './state/matcherReducer'
 import { batchSearchSongs } from '@/lib/batch-search'
 
+declare global {
+  interface Window {
+    onSpotifyIframeApiReady?: (IFrameAPI: any) => void
+  }
+}
+
 export default function SpotifyMatcherPage() {
   const [state, dispatch] = useReducer(matcherReducer, initialMatcherState)
+  const [spotifyEmbedController, setSpotifyEmbedController] = useState<any | null>(null);
 
   const {
     currentArtist,
@@ -97,6 +104,25 @@ export default function SpotifyMatcherPage() {
   useEffect(() => {
     loadRandomArtist()
   }, [loadRandomArtist])
+
+  const spotifyEmbededIframe = useRef<HTMLDivElement>(null);
+
+  const configureSpotifyEmbed = useCallback((IFrameAPI: any) => {
+      if (!spotifyEmbededIframe.current) {
+        setTimeout(() => {
+          configureSpotifyEmbed(IFrameAPI);
+        }, 100);
+        return ;
+      }
+
+      const element = spotifyEmbededIframe.current;
+      const options = {};
+      IFrameAPI.createController(element, options, (EmbedController: any) => setSpotifyEmbedController(EmbedController));
+    }, [spotifyEmbededIframe])
+
+  useEffect(() => {
+    window.onSpotifyIframeApiReady = configureSpotifyEmbed
+  }, []);
 
   /**
    * Attempts to save an auto-match to the database.
@@ -391,6 +417,7 @@ export default function SpotifyMatcherPage() {
 
       {/* DEBUG PANEL */}
       <DebugPanel debugInfo={debugInfo} />
+      <div ref={spotifyEmbededIframe}></div>
 
       {/* Tinder-style Review Card */}
       {hasMoreToReview && currentReview && (
