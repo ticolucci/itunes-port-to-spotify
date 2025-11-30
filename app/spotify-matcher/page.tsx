@@ -468,6 +468,7 @@ export default function SpotifyMatcherPage() {
             onMatch={handleMatch}
             onUndo={handleUndo}
             onSongUpdate={handleSongUpdate}
+            handlePlaySong={handlePlaySong}
           />
         ))}
       </div>

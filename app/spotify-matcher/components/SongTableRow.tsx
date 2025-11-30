@@ -11,9 +11,10 @@ interface SongTableRowProps {
   onMatch: (songId: number, spotifyId: string) => void
   onUndo: (songId: number) => void
   onSongUpdate?: (songId: number, update: { artist: string; title: string; album: string | null }) => void
+  handlePlaySong: (spotifyId: string) => void
 }
 
-export function SongTableRow({ songWithMatch, isMatching, onMatch, onUndo, onSongUpdate }: SongTableRowProps) {
+export function SongTableRow({ songWithMatch, isMatching, onMatch, onUndo, onSongUpdate, handlePlaySong }: SongTableRowProps) {
   const albumImage = songWithMatch.spotifyMatch?.album.images?.[0]?.url
 
   return (
@@ -55,14 +56,16 @@ export function SongTableRow({ songWithMatch, isMatching, onMatch, onUndo, onSon
           </div>
         ) : songWithMatch.spotifyMatch ? (
           <>
-            {albumImage && (
-              // eslint-disable-next-line @next/next/no-img-element -- Spotify CDN images are already optimized
-              <img
-                src={albumImage}
-                alt={songWithMatch.spotifyMatch.album.name}
-                className="w-12 h-12 rounded flex-shrink-0 object-cover"
-              />
-            )}
+            <a onClick={() => handlePlaySong(songWithMatch.spotifyMatch!.id)}>
+              {albumImage && (
+                // eslint-disable-next-line @next/next/no-img-element -- Spotify CDN images are already optimized
+                <img
+                  src={albumImage}
+                  alt={songWithMatch.spotifyMatch.album.name}
+                  className="w-12 h-12 rounded flex-shrink-0 object-cover"
+                />
+              )}
+            </a>
             <div className="min-w-0">
               <div className="flex items-center gap-2 mb-1">
                 <p className="font-medium truncate">
