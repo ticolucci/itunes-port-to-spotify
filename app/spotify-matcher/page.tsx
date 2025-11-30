@@ -357,6 +357,13 @@ export default function SpotifyMatcherPage() {
     })
   }
 
+  function handlePlaySong(spotifyId: string) {
+    if (spotifyEmbedController) {
+      spotifyEmbedController.loadUri(`spotify:track:${spotifyId}`);
+      spotifyEmbedController.play();
+    }
+  }
+
   if (loading) {
     return (
       <div className="container mx-auto py-8">
