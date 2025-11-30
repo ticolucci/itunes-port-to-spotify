@@ -435,6 +435,7 @@ export default function SpotifyMatcherPage() {
           isMatching={matchingIds.has(currentReview.dbSong.id)}
           onMatch={handleReviewMatch}
           onSkip={handleSkip}
+          handlePlaySong={handlePlaySong}
         />
       )}
 

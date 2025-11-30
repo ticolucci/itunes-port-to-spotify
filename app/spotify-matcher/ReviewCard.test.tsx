@@ -24,6 +24,7 @@ describe('ReviewCard', () => {
     isMatching: false,
     onMatch: vi.fn(),
     onSkip: vi.fn(),
+    handlePlaySong: vi.fn(),
   }
 
   describe('Single match display', () => {

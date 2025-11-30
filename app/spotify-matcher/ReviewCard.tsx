@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Loader2, Check, X, Music, ChevronDown, ChevronUp } from 'lucide-react'
 import type { SongWithMatch } from '@/lib/song-matcher-utils'
+import { SpotifyTrack } from '@/lib/spotify'
 
 interface ReviewCardProps {
   currentReview: SongWithMatch
@@ -10,6 +11,7 @@ interface ReviewCardProps {
   isMatching: boolean
   onMatch: (songId: number, spotifyId: string) => void
   onSkip: () => void
+  handlePlaySong: (spotifyId: string) => void
 }
 
 export function ReviewCard({
@@ -19,12 +21,19 @@ export function ReviewCard({
   isMatching,
   onMatch,
   onSkip,
+  handlePlaySong
 }: ReviewCardProps) {
   const [isExpanded, setIsExpanded] = useState(false)
+
+  useEffect(() => {
+    if (currentReview.spotifyMatch)
+      handlePlaySong(currentReview.spotifyMatch.id)
+  }, [currentReview])
 
   if (!currentReview.spotifyMatch || currentReview.isMatched) {
     return null
   }
+  const spotifyMatch: SpotifyTrack = currentReview.spotifyMatch
 
   // Get additional matches (excluding the best match which is shown at top)
   const additionalMatches = currentReview.allMatches?.slice(1) || []
@@ -68,27 +77,27 @@ export function ReviewCard({
           <div className="flex flex-col items-center gap-3">
             {currentReview.spotifyMatch.album.images?.[0]?.url ? (
               // eslint-disable-next-line @next/next/no-img-element -- Spotify CDN images are already optimized
-              <img
-                src={currentReview.spotifyMatch.album.images[0].url}
-                alt={currentReview.spotifyMatch.album.name}
-                className="w-20 h-20 rounded-lg object-cover shadow-md"
-              />
+                <img
+                  src={spotifyMatch.album.images[0].url}
+                  alt={spotifyMatch.album.name}
+                  className="w-20 h-20 rounded-lg object-cover shadow-md"
+                />
             ) : (
               <div className="w-20 h-20 bg-muted rounded-lg flex items-center justify-center">
                 <Music className="h-10 w-10 text-muted-foreground" />
               </div>
             )}
-            <div>
+          <div>
               <p className="font-bold text-lg">
-                {currentReview.spotifyMatch.name}
+                {spotifyMatch.name}
               </p>
               <p className="text-muted-foreground">
-                {currentReview.spotifyMatch.artists
+                {spotifyMatch.artists
                   .map((a) => a.name)
                   .join(', ')}
               </p>
               <p className="text-sm text-muted-foreground">
-                {currentReview.spotifyMatch.album.name}
+                {spotifyMatch.album.name}
               </p>
               <span
                 className={`inline-block mt-2 text-xs px-2 py-1 rounded ${
@@ -122,7 +131,7 @@ export function ReviewCard({
           data-testid="match-button"
           size="lg"
           onClick={() =>
-            onMatch(currentReview.dbSong.id, currentReview.spotifyMatch!.id)
+            onMatch(currentReview.dbSong.id, spotifyMatch!.id)
           }
           disabled={isMatching}
           className="w-32 h-14"
