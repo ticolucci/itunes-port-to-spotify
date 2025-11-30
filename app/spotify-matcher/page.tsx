@@ -423,7 +423,7 @@ export default function SpotifyMatcherPage() {
       <p className="text-muted-foreground mb-8">Match your iTunes songs with Spotify tracks</p>
 
       {/* DEBUG PANEL */}
-      <DebugPanel debugInfo={debugInfo} />
+      {/* <DebugPanel debugInfo={debugInfo} /> */}
       <div ref={spotifyEmbededIframe}></div>
 
       {/* Tinder-style Review Card */}
