@@ -164,20 +164,7 @@ export function isValidForMatching(song: Song): boolean {
 
 ---
 
-### C. Race Condition in Auto-Match
-
-**File**: `app/spotify-matcher/page.tsx:140-187`
-
-**Issue**: `autoMatchInProgress` is a `useRef`, but `autoMatchEnabled` dependency means effect runs on toggle. Rapid toggling could start multiple processes.
-
-**Fix**: Convert `autoMatchInProgress` from `useRef` to `useState`, or use state machine pattern.
-
-**Priority**: Medium
-**Size**: Small
-
----
-
-### D. UI Alert Instead of Toast Notifications
+### C. UI Alert Instead of Toast Notifications
 
 **Files**: Multiple (`page.tsx:292, 338, 356`)
 
@@ -259,7 +246,6 @@ export function mapRowToSong(row: SongRow): Song {
 
 **Opportunities to extract**:
 - Debug panel → separate component
-- Auto-match logic → custom hook (`useAutoMatch()`)
 - Search logic → custom hook (`useSpotifySearch()`)
 
 **Priority**: Low
@@ -282,29 +268,7 @@ export function mapRowToSong(row: SongRow): Song {
 
 ## Performance Improvements
 
-### A. N+1 Query Pattern in Auto-Match
-
-**File**: `app/spotify-matcher/page.tsx:85-89`
-
-**Issue**: Each song triggers separate Spotify API call. For 100 songs = 100 API calls.
-
-**Fix**: Implement batching:
-```typescript
-async function batchSearch(songs: Song[], batchSize = 5) {
-  const batches = chunk(songs, batchSize)
-  for (const batch of batches) {
-    await Promise.all(batch.map(searchForMatch))
-    await delay(100) // Rate limiting
-  }
-}
-```
-
-**Priority**: High
-**Size**: Medium
-
----
-
-### B. Cache TTL Too Long
+### A. Cache TTL Too Long
 
 **File**: `lib/spotify-cache.ts:10`
 
@@ -464,7 +428,6 @@ Add tests for:
 **C. No Tests for Race Conditions**
 
 Add tests for:
-- Auto-match rapid enable/disable
 - Concurrent save operations
 - Cache invalidation races
 
@@ -504,7 +467,6 @@ Add benchmarks for:
 
 Allow users to:
 - Select multiple songs to match at once
-- Set auto-match threshold globally
 - Preview all matches before applying
 - Bulk confirm/reject
 
@@ -517,7 +479,6 @@ Allow users to:
 
 Keep history of matches and allow batch undo:
 - "Undo last 10 matches"
-- Revert to previous auto-match threshold
 - See what changed and when
 - Export match history
 
@@ -608,6 +569,28 @@ Before saving a match, show:
 
 ## Completed Stories
 
+### ✅ Remove Auto-Match Feature
+
+**Description**: Removed automatic song matching (auto-match toggle) to simplify UX and reduce code complexity. Users now manually review and approve all matches, while still seeing similarity percentages (≥80% highlighted in green) to inform their decisions.
+
+**Removed Components**:
+- Auto-match toggle UI
+- Auto-match state management (3 state properties)
+- Auto-match reducer actions (5 actions)
+- Auto-match utility functions (3 functions)
+- Auto-match useEffect hook
+- ~280 lines of code across 8 files
+
+**Benefits**:
+- Simpler codebase (30% reduction in state properties, 31% reduction in reducer actions)
+- Single matching code path (no dual auto/manual logic)
+- No race condition handling needed
+- Better user control over matching decisions
+
+**Date**: December 2025
+
+---
+
 ### ✅ Replace LIMIT/OFFSET with ID-Cursor Batch Scan
 
 **Description**: Improved batch scanning to use id-cursor instead of LIMIT/OFFSET.
@@ -662,9 +645,8 @@ Before saving a match, show:
 
 1. **Spotify special character escaping** - Blocks real usage
 2. **Cache expiration bug** - Data consistency issue
-3. **Auto-match race condition** - Data integrity risk
 
-**Estimated effort**: 1-2 days
+**Estimated effort**: 1 day
 
 ---
 
