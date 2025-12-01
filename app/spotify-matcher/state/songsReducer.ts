@@ -5,9 +5,7 @@ export type SongsAction =
   | { type: 'SET_SONGS'; payload: SongWithMatch[] }
   | { type: 'SET_SEARCHING'; payload: { songId: number; searching: boolean } }
   | { type: 'UPDATE_MATCH'; payload: { songId: number; spotifyMatch: SpotifyTrack; similarity: number; allMatches?: Array<{ track: SpotifyTrack; similarity: number }> } }
-  | { type: 'AUTO_MATCH'; payload: { songId: number; spotifyMatch: SpotifyTrack; similarity: number; spotifyId: string; allMatches?: Array<{ track: SpotifyTrack; similarity: number }> } }
   | { type: 'MARK_MATCHED'; payload: { songId: number; spotifyId: string } }
-  | { type: 'BATCH_MATCH'; payload: Map<number, { spotifyMatch: SpotifyTrack; similarity: number }> }
   | { type: 'CLEAR_MATCH'; payload: { songId: number } }
   | { type: 'UPDATE_SONG_METADATA'; payload: { songId: number; artist: string; title: string; album: string | null } }
 
@@ -36,21 +34,6 @@ export function songsReducer(state: SongWithMatch[], action: SongsAction): SongW
           : item
       )
 
-    case 'AUTO_MATCH':
-      return state.map((item) =>
-        item.dbSong.id === action.payload.songId
-          ? {
-              ...item,
-              spotifyMatch: action.payload.spotifyMatch,
-              similarity: action.payload.similarity,
-              allMatches: action.payload.allMatches,
-              searching: false,
-              isMatched: true,
-              dbSong: { ...item.dbSong, spotify_id: action.payload.spotifyId },
-            }
-          : item
-      )
-
     case 'MARK_MATCHED':
       return state.map((item) =>
         item.dbSong.id === action.payload.songId
@@ -61,21 +44,6 @@ export function songsReducer(state: SongWithMatch[], action: SongsAction): SongW
             }
           : item
       )
-
-    case 'BATCH_MATCH':
-      return state.map((item) => {
-        const matchData = action.payload.get(item.dbSong.id)
-        return matchData
-          ? {
-              ...item,
-              spotifyMatch: matchData.spotifyMatch,
-              similarity: matchData.similarity,
-              searching: false,
-              isMatched: true,
-              dbSong: { ...item.dbSong, spotify_id: matchData.spotifyMatch.id },
-            }
-          : item
-      })
 
     case 'CLEAR_MATCH':
       return state.map((item) =>
