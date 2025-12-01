@@ -6,9 +6,8 @@ A TypeScript/Next.js application that helps you port your iTunes music library t
 
 - **iTunes Library Import**: Parse iTunes library metadata into a SQLite database
 - **Smart Spotify Matching**: Search Spotify API with intelligent similarity scoring
-- **Interactive Review UI**: Manually review and confirm matches with confidence scores
+- **Interactive Review UI**: Manually review and confirm matches with confidence scores displayed
 - **AI-Powered Metadata Fixing**: Automatically clean problematic metadata using LLM
-- **Auto-Match Mode**: Batch process songs above a confidence threshold
 - **Search Caching**: 30-day cache reduces API calls and improves performance
 
 ## Quick Start
