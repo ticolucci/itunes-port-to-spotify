@@ -70,7 +70,13 @@ export async function searchSpotifyTracks(
     if (process.env.POLLY_MODE !== 'replay') {
       throw new Error('Spotify credentials not configured')
     }
+    // In replay mode, provide dummy credentials since Polly intercepts HTTP calls
+    // The actual values don't matter as the requests are mocked
   }
+
+  // Use dummy credentials in replay mode if real ones are missing
+  const finalClientId = clientId || 'ci-test-client-id'
+  const finalClientSecret = clientSecret || 'ci-test-client-secret'
 
   // Build tagged query (e.g., "artist:Beatles album:Abbey Road")
   // Filter out null/empty values, escape special characters, and trim whitespace
@@ -102,7 +108,7 @@ export async function searchSpotifyTracks(
   const query = queryParts.join(' ')
 
   // Initialize Spotify SDK with client credentials
-  const sdk = SpotifyApi.withClientCredentials(clientId, clientSecret)
+  const sdk = SpotifyApi.withClientCredentials(finalClientId, finalClientSecret)
 
   // Search for tracks
   const results = await sdk.search(query, ['track'], undefined, 20)
