@@ -67,7 +67,9 @@ export async function searchSpotifyTracks(
   const clientSecret = process.env.SPOTIFY_CLIENT_SECRET
 
   if (!clientId || !clientSecret) {
-    throw new Error('Spotify credentials not configured')
+    if (process.env.POLLY_MODE !== 'replay') {
+      throw new Error('Spotify credentials not configured')
+    }
   }
 
   // Build tagged query (e.g., "artist:Beatles album:Abbey Road")
