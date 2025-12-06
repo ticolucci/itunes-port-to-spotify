@@ -20,20 +20,16 @@ describe('matcherReducer', () => {
       expect(initialMatcherState.error).toBeNull()
       expect(initialMatcherState.matchingIds).toEqual(new Set())
       expect(initialMatcherState.currentReviewIndex).toBe(0)
-      expect(initialMatcherState.autoMatchEnabled).toBe(false)
-      expect(initialMatcherState.processedAutoMatches).toEqual(new Set())
-      expect(initialMatcherState.autoMatchInProgress).toBe(false)
       expect(initialMatcherState.debugInfo).toBeNull()
     })
   })
 
   describe('LOAD_ARTIST_START', () => {
-    it('sets loading true, clears error and processed auto matches', () => {
+    it('sets loading true and clears error', () => {
       const state: MatcherState = {
         ...initialMatcherState,
         loading: false,
         error: 'previous error',
-        processedAutoMatches: new Set([1, 2, 3]),
       }
       const action: MatcherAction = { type: 'LOAD_ARTIST_START' }
 
@@ -41,7 +37,6 @@ describe('matcherReducer', () => {
 
       expect(result.loading).toBe(true)
       expect(result.error).toBeNull()
-      expect(result.processedAutoMatches.size).toBe(0)
     })
   })
 
@@ -85,56 +80,6 @@ describe('matcherReducer', () => {
 
       expect(result.error).toBe('Failed to load')
       expect(result.loading).toBe(false)
-    })
-  })
-
-  describe('SET_AUTO_MATCH_ENABLED', () => {
-    it('toggles auto match on', () => {
-      const state: MatcherState = { ...initialMatcherState, autoMatchEnabled: false }
-      const action: MatcherAction = { type: 'SET_AUTO_MATCH_ENABLED', payload: true }
-
-      const result = matcherReducer(state, action)
-
-      expect(result.autoMatchEnabled).toBe(true)
-    })
-
-    it('toggles auto match off', () => {
-      const state: MatcherState = { ...initialMatcherState, autoMatchEnabled: true }
-      const action: MatcherAction = { type: 'SET_AUTO_MATCH_ENABLED', payload: false }
-
-      const result = matcherReducer(state, action)
-
-      expect(result.autoMatchEnabled).toBe(false)
-    })
-  })
-
-  describe('SET_AUTO_MATCH_IN_PROGRESS', () => {
-    it('sets auto match in progress', () => {
-      const state: MatcherState = { ...initialMatcherState, autoMatchInProgress: false }
-      const action: MatcherAction = { type: 'SET_AUTO_MATCH_IN_PROGRESS', payload: true }
-
-      const result = matcherReducer(state, action)
-
-      expect(result.autoMatchInProgress).toBe(true)
-    })
-  })
-
-  describe('ADD_PROCESSED_AUTO_MATCHES', () => {
-    it('adds song IDs to processed set', () => {
-      const state: MatcherState = {
-        ...initialMatcherState,
-        processedAutoMatches: new Set([1]),
-      }
-      const action: MatcherAction = {
-        type: 'ADD_PROCESSED_AUTO_MATCHES',
-        payload: [2, 3],
-      }
-
-      const result = matcherReducer(state, action)
-
-      expect(result.processedAutoMatches.has(1)).toBe(true)
-      expect(result.processedAutoMatches.has(2)).toBe(true)
-      expect(result.processedAutoMatches.has(3)).toBe(true)
     })
   })
 
@@ -270,28 +215,6 @@ describe('matcherReducer', () => {
     })
   })
 
-  describe('AUTO_MATCH_SONG', () => {
-    it('updates match and marks as matched', () => {
-      const state: MatcherState = {
-        ...initialMatcherState,
-        songs: [createMockSongWithMatch({ dbSong: createMockSong({ id: 1 }), searching: true })],
-      }
-      const spotifyTrack = createMockSpotifyTrack({ id: 'spotify123' })
-      const action: MatcherAction = {
-        type: 'AUTO_MATCH_SONG',
-        payload: { songId: 1, spotifyMatch: spotifyTrack, similarity: 90, spotifyId: 'spotify123' },
-      }
-
-      const result = matcherReducer(state, action)
-
-      expect(result.songs[0].spotifyMatch).toEqual(spotifyTrack)
-      expect(result.songs[0].similarity).toBe(90)
-      expect(result.songs[0].isMatched).toBe(true)
-      expect(result.songs[0].searching).toBe(false)
-      expect(result.songs[0].dbSong.spotify_id).toBe('spotify123')
-    })
-  })
-
   describe('MARK_SONG_MATCHED', () => {
     it('marks song as matched with spotify_id', () => {
       const state: MatcherState = {
@@ -313,38 +236,6 @@ describe('matcherReducer', () => {
 
       expect(result.songs[0].isMatched).toBe(true)
       expect(result.songs[0].dbSong.spotify_id).toBe('spotify123')
-    })
-  })
-
-  describe('BATCH_MATCH_SONGS', () => {
-    it('updates multiple songs at once', () => {
-      const state: MatcherState = {
-        ...initialMatcherState,
-        songs: [
-          createMockSongWithMatch({ dbSong: createMockSong({ id: 1 }) }),
-          createMockSongWithMatch({ dbSong: createMockSong({ id: 2 }) }),
-          createMockSongWithMatch({ dbSong: createMockSong({ id: 3 }) }),
-        ],
-      }
-      const track1 = createMockSpotifyTrack({ id: 'spotify1' })
-      const track2 = createMockSpotifyTrack({ id: 'spotify2' })
-      const matchResults = new Map([
-        [1, { spotifyMatch: track1, similarity: 85 }],
-        [3, { spotifyMatch: track2, similarity: 92 }],
-      ])
-      const action: MatcherAction = { type: 'BATCH_MATCH_SONGS', payload: matchResults }
-
-      const result = matcherReducer(state, action)
-
-      expect(result.songs[0].isMatched).toBe(true)
-      expect(result.songs[0].spotifyMatch).toEqual(track1)
-      expect(result.songs[0].similarity).toBe(85)
-      expect(result.songs[0].dbSong.spotify_id).toBe('spotify1')
-
-      expect(result.songs[1].isMatched).toBe(false)
-
-      expect(result.songs[2].isMatched).toBe(true)
-      expect(result.songs[2].spotifyMatch).toEqual(track2)
     })
   })
 

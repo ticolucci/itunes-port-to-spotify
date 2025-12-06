@@ -20,7 +20,6 @@ import {
   shouldSkipSong,
   createInitialSongs,
   findNextReviewableIndex,
-  getEligibleAutoMatchSongs,
 } from '@/lib/song-matcher-utils'
 import { matcherReducer, initialMatcherState } from './state/matcherReducer'
 import { batchSearchSongs } from '@/lib/batch-search'
@@ -42,9 +41,6 @@ export default function SpotifyMatcherPage() {
     error,
     matchingIds,
     currentReviewIndex,
-    autoMatchEnabled,
-    processedAutoMatches,
-    autoMatchInProgress,
     debugInfo,
   } = state
 
@@ -124,100 +120,6 @@ export default function SpotifyMatcherPage() {
     window.onSpotifyIframeApiReady = configureSpotifyEmbed
   }, []);
 
-  /**
-   * Attempts to save an auto-match to the database.
-   * Returns the spotify ID if successful, null otherwise.
-   */
-  const attemptAutoMatch = useCallback(
-    async (songId: number, spotifyId: string, similarity: number): Promise<string | null> => {
-      if (!autoMatchEnabled || similarity < 80) return null
-
-      const matchResult = await saveSongMatch(songId, spotifyId)
-      if (!matchResult.success) return null
-
-      return spotifyId
-    },
-    [autoMatchEnabled]
-  )
-
-  /**
-   * Attempts to auto-match a song with its Spotify match and updates state.
-   * Returns true if match was successful, false otherwise.
-   */
-  async function attemptAutoMatchAndUpdateState(
-    songId: number,
-    spotifyMatch: SpotifyTrack,
-    similarity: number,
-    allMatches?: Array<{ track: SpotifyTrack; similarity: number }>
-  ): Promise<boolean> {
-    const spotifyId = await attemptAutoMatch(songId, spotifyMatch.id, similarity)
-    if (!spotifyId) return false
-
-    // Update state using reducer action
-    dispatch({
-      type: 'AUTO_MATCH_SONG',
-      payload: { songId, spotifyMatch, similarity, spotifyId, allMatches },
-    })
-
-    return true
-  }
-
-  // Auto-match existing search results when toggle is enabled
-  useEffect(() => {
-    if (!autoMatchEnabled) return
-
-    async function autoMatchEligibleSongs() {
-      // Prevent race conditions - only one auto-match process at a time
-      if (autoMatchInProgress) return
-      dispatch({ type: 'SET_AUTO_MATCH_IN_PROGRESS', payload: true })
-
-      try {
-        // Filter songs we haven't processed yet
-        const eligibleSongs = getEligibleAutoMatchSongs(
-          songsWithMatches,
-          matchingIds,
-          processedAutoMatches
-        )
-
-        // Mark as processed BEFORE async operations to prevent duplicates
-        if (eligibleSongs.length > 0) {
-          dispatch({
-            type: 'ADD_PROCESSED_AUTO_MATCHES',
-            payload: eligibleSongs.map((s) => s.dbSong.id),
-          })
-        }
-
-        // Collect all successful matches
-        const matchResults = new Map<number, { spotifyMatch: SpotifyTrack; similarity: number }>()
-
-        await Promise.all(
-          eligibleSongs.map(async (songWithMatch) => {
-            const spotifyId = await attemptAutoMatch(
-              songWithMatch.dbSong.id,
-              songWithMatch.spotifyMatch!.id,
-              songWithMatch.similarity
-            )
-            if (spotifyId) {
-              matchResults.set(songWithMatch.dbSong.id, {
-                spotifyMatch: songWithMatch.spotifyMatch!,
-                similarity: songWithMatch.similarity,
-              })
-            }
-          })
-        )
-
-        // Single batched state update for all successful matches
-        if (matchResults.size > 0) {
-          dispatch({ type: 'BATCH_MATCH_SONGS', payload: matchResults })
-        }
-      } finally {
-        dispatch({ type: 'SET_AUTO_MATCH_IN_PROGRESS', payload: false })
-      }
-    }
-
-    autoMatchEligibleSongs()
-  }, [autoMatchEnabled, songsWithMatches, matchingIds, processedAutoMatches, autoMatchInProgress, attemptAutoMatch])
-
   async function searchForMatch(song: Song) {
     // Skip songs without titles (defensive check)
     if (shouldSkipSong(song)) {
@@ -264,21 +166,11 @@ export default function SpotifyMatcherPage() {
           similarity: t.similarity,
         }))
 
-        // Try auto-match (will only succeed if enabled and similarity >= 80%)
-        const wasAutoMatched = await attemptAutoMatchAndUpdateState(
-          song.id,
-          bestMatch,
-          similarity,
-          allMatches
-        )
-
-        // If not auto-matched, update state with manual match option
-        if (!wasAutoMatched) {
-          dispatch({
-            type: 'UPDATE_SONG_MATCH',
-            payload: { songId: song.id, spotifyMatch: bestMatch, similarity, allMatches },
-          })
-        }
+        // Update state with match for manual review
+        dispatch({
+          type: 'UPDATE_SONG_MATCH',
+          payload: { songId: song.id, spotifyMatch: bestMatch, similarity, allMatches },
+        })
       } else {
         console.log(
           '[NO MATCH]',
@@ -409,16 +301,6 @@ export default function SpotifyMatcherPage() {
     <div className="container mx-auto py-8">
       <div className="flex items-center justify-between mb-2">
         <h1 className="text-3xl font-bold">Spotify Matcher</h1>
-        <label className="flex items-center gap-2 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={autoMatchEnabled}
-            onChange={(e) => dispatch({ type: 'SET_AUTO_MATCH_ENABLED', payload: e.target.checked })}
-            aria-label="Auto-match songs with similarity >= 80%"
-            className="w-4 h-4"
-          />
-          <span className="text-sm">Auto-match (≥80%)</span>
-        </label>
       </div>
       <p className="text-muted-foreground mb-8">Match your iTunes songs with Spotify tracks</p>
 
