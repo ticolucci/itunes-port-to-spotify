@@ -91,7 +91,7 @@ export function configurePollyForSpotify(polly: Polly): void {
       // Remove sensitive data from request
       if (recording.request.headers) {
         recording.request.headers = recording.request.headers.filter(
-          (header) => header.name.toLowerCase() !== 'authorization'
+          (header: { name: string }) => header.name.toLowerCase() !== 'authorization'
         )
       }
       if (recording.request.postData?.text) {
@@ -105,7 +105,7 @@ export function configurePollyForSpotify(polly: Polly): void {
     .on('beforePersist', (_req, recording) => {
       // Remove auth token from headers
       if (recording.request.headers) {
-        recording.request.headers = recording.request.headers.map((header) => {
+        recording.request.headers = recording.request.headers.map((header: { name: string; value: string }) => {
           if (header.name.toLowerCase() === 'authorization') {
             return { ...header, value: 'Bearer REDACTED' }
           }
