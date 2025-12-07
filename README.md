@@ -9,7 +9,7 @@ A TypeScript/Next.js application that helps you port your iTunes music library t
 - **Interactive Review UI**: Manually review and confirm matches with confidence scores
 - **AI-Powered Metadata Fixing**: Automatically clean problematic metadata using LLM
 - **Auto-Match Mode**: Batch process songs above a confidence threshold
-- **Search Caching**: 30-day cache reduces API calls and improves performance
+- **Search Caching**: 30-mins cache reduces API calls and improves performance
 
 ## Quick Start
 
