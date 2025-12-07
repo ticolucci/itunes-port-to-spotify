@@ -7,7 +7,7 @@ import type { SpotifyTrack, SpotifySearchParams } from './spotify'
  * Cache TTL in milliseconds (30 days)
  * Spotify data doesn't change frequently, so a longer TTL is appropriate.
  */
-export const CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000
+export const CACHE_TTL_MS = 30 * 30 * 1000
 
 /**
  * Generate a consistent cache key from search parameters.
