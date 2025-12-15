@@ -42,6 +42,9 @@ Create a `.env.local` file with:
 SPOTIFY_CLIENT_ID=your_client_id
 SPOTIFY_CLIENT_SECRET=your_client_secret
 
+# Spotify Search Cache (optional)
+SPOTIFY_CACHE_TTL_MINUTES=30  # Default: 30 minutes
+
 # Google OAuth (optional, for authentication)
 GOOGLE_CLIENT_ID=your_google_client_id
 GOOGLE_CLIENT_SECRET=your_google_client_secret

@@ -4,10 +4,12 @@ import { eq, lt } from 'drizzle-orm'
 import type { SpotifyTrack, SpotifySearchParams } from './spotify'
 
 /**
- * Cache TTL in milliseconds (30 minutes)
+ * Cache TTL in milliseconds (default: 30 minutes)
+ * Configurable via SPOTIFY_CACHE_TTL_MINUTES environment variable.
  * Spotify data doesn't change frequently, so a longer TTL is appropriate.
  */
-export const CACHE_TTL_MS = 30 * 60 * 1000
+export const CACHE_TTL_MS =
+  (parseInt(process.env.SPOTIFY_CACHE_TTL_MINUTES || '30', 10) * 60 * 1000)
 
 /**
  * Generate a consistent cache key from search parameters.

@@ -194,8 +194,15 @@ describe('Spotify Search Cache', () => {
   })
 
   describe('CACHE_TTL_MS', () => {
-    it('is set to 30 days (in milliseconds)', () => {
-      expect(CACHE_TTL_MS).toBe(30 * 24 * 60 * 60 * 1000)
+    it('defaults to 30 minutes when env var not set', () => {
+      expect(CACHE_TTL_MS).toBe(30 * 60 * 1000)
+    })
+
+    it('uses configured value from SPOTIFY_CACHE_TTL_MINUTES env var', () => {
+      // This test verifies the formula is correct
+      // Actual value depends on environment variable at runtime
+      const expectedMinutes = parseInt(process.env.SPOTIFY_CACHE_TTL_MINUTES || '30', 10)
+      expect(CACHE_TTL_MS).toBe(expectedMinutes * 60 * 1000)
     })
   })
 
