@@ -8,7 +8,7 @@ A TypeScript/Next.js application that helps you port your iTunes music library t
 - **Smart Spotify Matching**: Search Spotify API with intelligent similarity scoring
 - **Interactive Review UI**: Manually review and confirm matches with confidence scores displayed
 - **AI-Powered Metadata Fixing**: Automatically clean problematic metadata using LLM
-- **Search Caching**: 30-day cache reduces API calls and improves performance
+- **Search Caching**: 30-mins cache reduces API calls and improves performance
 
 ## Quick Start
 
