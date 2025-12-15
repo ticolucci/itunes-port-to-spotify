@@ -88,6 +88,8 @@ jobs:
       - name: Run tests (using Polly replay mode)
         env:
           POLLY_MODE: replay
+          SPOTIFY_CLIENT_ID: ci-test-client-id
+          SPOTIFY_CLIENT_SECRET: ci-test-client-secret
         run: npm run test
 
   # Job 3: Build (runs on all branches)

@@ -25,35 +25,6 @@ export function hasIncompleteMetadata(song: Song): boolean {
 }
 
 /**
- * Determines if a song is eligible for auto-matching based on:
- * - Has a Spotify match
- * - Similarity >= 80%
- * - Not already matched
- * - Not currently being matched
- * - Not already processed
- */
-export function isEligibleForAutoMatch(
-  songWithMatch: SongWithMatch,
-  matchingIds: Set<number>,
-  processedAutoMatches: Set<number>
-): boolean {
-  return (
-    !!songWithMatch.spotifyMatch &&
-    songWithMatch.similarity >= 80 &&
-    !songWithMatch.isMatched &&
-    !matchingIds.has(songWithMatch.dbSong.id) &&
-    !processedAutoMatches.has(songWithMatch.dbSong.id)
-  )
-}
-
-/**
- * Determines if auto-match should be attempted based on similarity threshold.
- */
-export function shouldAttemptAutoMatch(similarity: number): boolean {
-  return similarity >= 80
-}
-
-/**
  * Gets count of matched songs from a list.
  */
 export function getMatchedCount(songs: SongWithMatch[]): number {
@@ -85,19 +56,6 @@ export function createInitialSongs(songs: Song[]): SongWithMatch[] {
     isMatched: !!song.spotify_id,
     searching: false,
   }))
-}
-
-/**
- * Filters songs eligible for auto-matching.
- */
-export function getEligibleAutoMatchSongs(
-  songs: SongWithMatch[],
-  matchingIds: Set<number>,
-  processedMatches: Set<number>
-): SongWithMatch[] {
-  return songs.filter((s) =>
-    isEligibleForAutoMatch(s, matchingIds, processedMatches)
-  )
 }
 
 /**
